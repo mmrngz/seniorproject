@@ -314,23 +314,16 @@ class BaseStockService:
             # RSI hesaplama (14 günlük period)
             if 'last_price' in df.columns and len(df) >= 15:  # En az 15 veri noktası gerekli
                 try:
-                    # Önce fiyat değişimini hesapla
+                    # Fiyat değişimini hesapla
                     delta = df['last_price'].diff()
                     if not delta.isna().all():  # Tüm değerler NaN değilse
-                        gain = delta.copy()
-                        loss = delta.copy()
-                        gain[gain < 0] = 0
-                        loss[loss > 0] = 0
-                        loss = loss.abs()
+                        # Kazanç ve kayıpları ayır
+                        gain = delta.where(delta > 0, 0)
+                        loss = -delta.where(delta < 0, 0)
                         
-                        # İlk 14 gün için ortalama kazanç ve kayıp
-                        avg_gain = gain.rolling(window=14).mean()
-                        avg_loss = loss.rolling(window=14).mean()
-                        
-                        # İlk 14 günden sonra, önceki değerleri kullanarak hesaplama
-                        for i in range(15, len(df)):
-                            avg_gain.iloc[i] = (avg_gain.iloc[i-1] * 13 + gain.iloc[i]) / 14
-                            avg_loss.iloc[i] = (avg_loss.iloc[i-1] * 13 + loss.iloc[i]) / 14
+                        # Üssel ağırlıklı ortalama (EWM) hesapla
+                        avg_gain = gain.ewm(com=14-1, min_periods=14).mean()
+                        avg_loss = loss.ewm(com=14-1, min_periods=14).mean()
                         
                         # RS ve RSI hesaplama
                         rs = avg_gain / avg_loss
