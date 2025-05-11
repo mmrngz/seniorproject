@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: ../docker/backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/bist_tahmin_db
+      - ENVIRONMENT=production
+      - PORT=8000
+      - PYTHONUNBUFFERED=1  # Python çıktılarının tamponlanmaması için
+    volumes:
+      # Ana volume bağlamasını yorum satırına alıyoruz
+      # - ./backend:/app
+      # Sadece belirli klasörleri bağlıyoruz, böylece entrypoint.sh ezilmeyecek
+      - ./backend/app:/app/app
+      - ./backend/tests:/app/tests
+      - backend_logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy  # Veritabanı sağlıklı olduğunda başlat
+    restart: on-failure:5  # Sınırlı sayıda yeniden başlatma yapar
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s  # Uygulamanın başlaması için beklenecek süre
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/frontend/Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: always
+
+  db:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=bist_tahmin_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    
+  # Veritabanı yönetim aracı
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
+  backend_logs: 
