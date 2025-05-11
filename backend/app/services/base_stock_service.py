@@ -128,7 +128,7 @@ class BaseStockService:
         elif weekday == 5:  # Cumartesi
             prev_date = date - timedelta(days=1)
         else:
-        prev_date = date - timedelta(days=1)
+            prev_date = date - timedelta(days=1)
         
         self.logger.info(f"Önceki iş günü hesaplandı: Bugün={date.strftime('%A')} -> Önceki={prev_date.strftime('%A')}")
         
@@ -243,8 +243,7 @@ class BaseStockService:
                         self.logger.info(f"{ticker} için yf.download() başarılı oldu: {len(df)} satır.")
                     else:
                         self.logger.warning(f"{ticker} için veri çekilemedi.")
-                    
-                except Exception as e:
+            except Exception as e:
                 self.logger.error(f"{ticker} için veri çekilirken hata: {str(e)}")
                 return pd.DataFrame()
             
@@ -607,7 +606,7 @@ class BaseStockService:
         Hisse senedi verilerini belirlenen kriterlere göre filtreler.
         - RSI değeri 45-65 arası olanlar
         - Göreceli hacim değeri 1.4 ve üzeri olanlar
-        - Fibonacci Pivot Noktaları (1 gün, Aşağı Keser, Fiyat)
+        - Fibonacci Pivot Noktaları (1 gün, Yukarı Keser, Fiyat)
         
         Args:
             df: Filtrelenecek hisse senedi verileri
@@ -656,16 +655,16 @@ class BaseStockService:
                 filter_results['volume_filter'] = True
                 self.logger.info(f"Göreceli hacim filtresi geçildi: {rel_volume:.2f} (>1.4)")
             
-            # 3. Fibonacci Pivot Noktaları Filtresi (Aşağı Keser)
+            # 3. Fibonacci Pivot Noktaları Filtresi (Yukarı Keser)
             if len(df) >= 2:
                 current_price = last_row['last_price']
                 pivot_value = last_row['pivot']
                 previous_price = df.iloc[-2]['last_price']
                 
-                # Aşağı Keser - Fiyat pivot seviyesini yukarıdan aşağı kesti mi?
-                if previous_price > pivot_value and current_price <= pivot_value:
+                # Yukarı Keser - Fiyat pivot seviyesini aşağıdan yukarı kesti mi?
+                if previous_price < pivot_value and current_price >= pivot_value:
                     filter_results['fibonacci_filter'] = True
-                    self.logger.info(f"Fibonacci pivot aşağı kesme filtresi geçildi: Önceki: {previous_price:.2f} -> Güncel: {current_price:.2f}, Pivot: {pivot_value:.2f}")
+                    self.logger.info(f"Fibonacci pivot yukarı kesme filtresi geçildi: Önceki: {previous_price:.2f} -> Güncel: {current_price:.2f}, Pivot: {pivot_value:.2f}")
             
             # Genel seçim - Tüm filtreleri geçen hisseler
             if (filter_results['rsi_filter'] and 
