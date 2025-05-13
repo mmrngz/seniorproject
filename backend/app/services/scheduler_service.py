@@ -148,7 +148,7 @@ class SchedulerService:
             self.logger.info(f"TAHMİN BAŞLATILIYOR: {len(selected_symbols)} hisse seçildi")
             self.logger.info(f"TAHMİN EDİLECEK SEMBOLLER: {', '.join(selected_symbols)}")
             
-            # Hisseler için tahminler yap (saatlik veri kullanarak)
+            # Hisseler için tahminler yap
             predictions = self.prediction_service.predict_with_hourly_data(db, selected_symbols, days=days_for_prediction)
             
             if predictions:

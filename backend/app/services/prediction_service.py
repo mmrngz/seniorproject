@@ -1525,22 +1525,95 @@ class PredictionService:
     
     def get_prediction_by_symbol(self, db: Session, symbol: str) -> Dict[str, Any]:
         """
-        Veritabanından belirli bir hisse senedi için tahmin bilgilerini getirir.
+        Belirli bir sembol için mevcut tahmin bilgilerini döndürür
         
         Args:
             db: Veritabanı oturumu
             symbol: Hisse senedi sembolü
             
         Returns:
-            Dict: Tahmin bilgileri veya None (bulunamazsa)
+            Dict: Tahmin sonuçları, PredictionStockResponse şemasıyla uyumlu
         """
         try:
-            # Veritabanından tahmini sorgula
-            prediction_record = db.query(PredictionStock).filter(PredictionStock.symbol == symbol).first()
+            # Tahmin kaydını bul
+            prediction = db.query(PredictionStock).filter(PredictionStock.symbol == symbol).first()
             
-            if not prediction_record:
-                self.logger.warning(f"{symbol} için kayıtlı tahmin bulunamadı")
+            if not prediction:
+                self.logger.warning(f"{symbol} için tahmin bulunamadı")
                 return None
+            
+            # Hesaplama sonuçlarını döndür
+            return self._prepare_prediction_response(prediction)
+                
+        except Exception as e:
+            self.logger.error(f"{symbol} için tahmin getirme hatası: {str(e)}")
+            return None
+    
+    def predict_with_hourly_data(self, db: Session, symbols: List[str], days: int = 45) -> List[Dict[str, Any]]:
+        """
+        Filtrelenen hisseler için saatlik veri kullanarak tahmin yapar.
+        
+        Args:
+            db: Veritabanı oturumu
+            symbols: Tahmin yapılacak hisse senedi sembolleri listesi
+            days: Kaç günlük veri kullanılacağı
+            
+        Returns:
+            List[Dict]: Tahmin sonuçlarını içeren sözlük listesi
+        """
+        try:
+            self.logger.info(f"Toplam {len(symbols)} hisse için saatlik veri ile tahmin yapılıyor")
+            
+            results = []
+            
+            # Her sembol için tahmin yap
+            for i, symbol in enumerate(symbols):
+                try:
+                    self.logger.info(f"Hisse {i+1}/{len(symbols)}: {symbol} için tahmin yapılıyor")
+                    
+                    # BaseStock kaydını al
+                    stock = db.query(BaseStock).filter(BaseStock.symbol == symbol).first()
+                    
+                    if not stock:
+                        self.logger.warning(f"{symbol} sembolü için BaseStock kaydı bulunamadı")
+                        continue
+                    
+                    # Tahmin yap
+                    prediction = self.predict_stock(db, stock, model_type='all')
+                    
+                    if prediction:
+                        self.logger.info(f"{symbol} için tahmin başarıyla yapıldı")
+                        results.append(prediction)
+                    else:
+                        self.logger.warning(f"{symbol} için tahmin yapılamadı")
+                    
+                    # API limitlerine takılmamak için kısa bir bekleme
+                    time.sleep(2)
+                    
+                except Exception as e:
+                    self.logger.error(f"{symbol} için tahmin hatası: {str(e)}")
+                    continue
+            
+            self.logger.info(f"Toplam {len(results)}/{len(symbols)} hisse için tahmin tamamlandı")
+            return results
+            
+        except Exception as e:
+            self.logger.error(f"Saatlik veri ile toplu tahmin hatası: {str(e)}")
+            return []
+        
+    def _prepare_prediction_response(self, prediction_record: PredictionStock) -> Dict[str, Any]:
+        """
+        Tahmin kaydını API yanıtı formatına dönüştürür
+        
+        Args:
+            prediction_record: Tahmin kaydı
+            
+        Returns:
+            Dict: API yanıtı formatında tahmin verisi
+        """
+        try:
+            # Sembolü al
+            symbol = prediction_record.symbol
             
             # JSON verisini parse et
             try:
@@ -1550,8 +1623,8 @@ class PredictionService:
                 return None
             
             # API yanıtını hazırla
-            stock = db.query(BaseStock).filter(BaseStock.symbol == symbol).first()
-            current_price = float(stock.last_price) if stock and hasattr(stock, "last_price") else 0.0
+            stock = prediction_record.base_stock  # İlişkili BaseStock kaydı
+            current_price = prediction_record.current_price or 0.0
             
             # Prediction Data'dan değerleri çıkar
             predictions = prediction_data.get("predictions", {})
@@ -1605,7 +1678,7 @@ class PredictionService:
             response = {
                 "id": prediction_record.id,
                 "symbol": symbol,
-                "base_stock_id": stock.id if stock else -1,
+                "base_stock_id": stock.id if stock else None,
                 "current_price": current_price,
                 
                 # LSTM tahminleri
@@ -1654,6 +1727,6 @@ class PredictionService:
             return response
             
         except Exception as e:
-            self.logger.error(f"{symbol} için tahmin getirme hatası: {str(e)}")
+            self.logger.error(f"Tahmin yanıtı hazırlama hatası: {str(e)}")
             self.logger.error(traceback.format_exc())
             return None

@@ -105,6 +105,56 @@ def get_filtered_symbols(
             detail=f"Filtrelenmiş sembolleri alırken bir hata oluştu: {str(e)}"
         )
 
+@router.get("/filtered-predictions", response_model=List[PredictionStockResponse])
+def get_filtered_predictions(
+    db: Session = Depends(get_db),
+    run_predictions: bool = Query(False, description="Filtrelenmiş hisseler için tahmin yap")
+):
+    """
+    Filtreleme kriterlerini geçen hisselerin tahminlerini döndürür.
+    
+    Args:
+        db: Veritabanı oturumu
+        run_predictions: Tahminlerin yeniden hesaplanıp hesaplanmayacağı
+        
+    Returns:
+        List[PredictionStockResponse]: Filtrelenen hisselerin tahmin sonuçları listesi
+    """
+    try:
+        # Seçilen (filtreleri geçen) hisseleri getir
+        selected_stocks = base_service.get_selected_stocks(db)
+        
+        if not selected_stocks:
+            logger.warning("Filtreleme kriterlerini geçen hisse bulunamadı")
+            return []
+        
+        # Sembolleri çıkar
+        symbols = [stock.symbol for stock in selected_stocks]
+        logger.info(f"Filtreleme kriterlerini geçen {len(symbols)} hisse için tahminler getiriliyor")
+        
+        if run_predictions:
+            # Tahminleri yeniden hesapla
+            logger.info(f"Filtrelenen {len(symbols)} hisse için tahminler yeniden hesaplanıyor...")
+            predictions = prediction_service.predict_with_hourly_data(db, symbols)
+            logger.info(f"Toplam {len(predictions)} hisse için tahminler hesaplandı")
+            return predictions
+        else:
+            # Mevcut tahminleri getir
+            predictions = []
+            for symbol in symbols:
+                prediction = prediction_service.get_prediction_by_symbol(db, symbol)
+                if prediction:
+                    predictions.append(prediction)
+            
+            logger.info(f"Toplam {len(predictions)}/{len(symbols)} hisse için tahminler bulundu")
+            return predictions
+    except Exception as e:
+        logger.error(f"Filtrelenmiş tahminleri alma hatası: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Filtrelenmiş tahminleri alırken bir hata oluştu: {str(e)}"
+        )
+
 @router.get("/filtered", response_model=List[BaseStockResponse])
 def get_filtered_stocks(
     db: Session = Depends(get_db),
