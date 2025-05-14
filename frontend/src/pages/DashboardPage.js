@@ -215,13 +215,13 @@ const DashboardPage = ({ user }) => {
                         {favoriteStocks.map((stock) => (
                           <TableRow key={stock.id}>
                             <TableCell>{stock.symbol}</TableCell>
-                            <TableCell>{stock.last_price} ₺</TableCell>
+                            <TableCell>{Number(stock.last_price).toFixed(3)} ₺</TableCell>
                             <TableCell>
                               <Typography
                                 variant="body2"
                                 sx={{ color: stock.daily_change >= 0 ? 'success.main' : 'error.main' }}
                               >
-                                %{stock.daily_change.toFixed(2)}
+                                %{Number(stock.daily_change).toFixed(2)}
                               </Typography>
                             </TableCell>
                             <TableCell>
@@ -260,13 +260,13 @@ const DashboardPage = ({ user }) => {
                         {predictions.map((pred) => (
                           <TableRow key={pred.id}>
                             <TableCell>{pred.symbol}</TableCell>
-                            <TableCell>{pred.lstm_predicted_price.toFixed(2)} ₺</TableCell>
+                            <TableCell>{Number(pred.lstm_predicted_price).toFixed(3)} ₺</TableCell>
                             <TableCell>
                               <Typography
                                 variant="body2"
                                 sx={{ color: pred.lstm_change_percent >= 0 ? 'success.main' : 'error.main' }}
                               >
-                                %{pred.lstm_change_percent.toFixed(2)}
+                                %{Number(pred.lstm_change_percent).toFixed(2)}
                               </Typography>
                             </TableCell>
                             <TableCell>

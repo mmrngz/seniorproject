@@ -12,6 +12,7 @@ services:
       - ENVIRONMENT=production
       - PORT=8000
       - PYTHONUNBUFFERED=1  # Python çıktılarının tamponlanmaması için
+      - CORS_ORIGINS=http://localhost:80
     volumes:
       # Ana volume bağlamasını yorum satırına alıyoruz
       # - ./backend:/app

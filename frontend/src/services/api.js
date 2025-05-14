@@ -37,4 +37,21 @@ api.interceptors.response.use(
   }
 );
 
-export default api; 
+// Backend API metotları
+const apiService = {
+  // Hisseler
+  getAllSymbols: () => api.get('/stocks/symbols'),
+  getFilteredSymbols: (refresh = false) => api.get('/stocks/filtered-symbols', { params: { refresh } }),
+  getStockBySymbol: (symbol) => api.get(`/stocks/${symbol}`),
+  
+  // Filtreler ve Tahminler
+  getFilteredStocks: (params) => api.get('/stocks/filtered', { params }),
+  getFilteredPredictions: (runPredictions = false) => api.get('/stocks/filtered-predictions', { params: { run_predictions: runPredictions } }),
+  getPredictionBySymbol: (symbol, refresh = false, modelType = 'all') => api.get(`/stocks/prediction/${symbol}`, { params: { refresh, model_type: modelType } }),
+  
+  // Saatlik Veri ve Model Özellikleri
+  getHourlyData: (symbol, days = 45) => api.get(`/stocks/saatlik-data/${symbol}`, { params: { days } }),
+  getModelFeatures: (symbol, days = 45) => api.get(`/stocks/model-features/${symbol}`, { params: { days } }),
+};
+
+export default apiService; 
