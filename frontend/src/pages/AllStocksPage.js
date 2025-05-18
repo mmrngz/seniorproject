@@ -105,8 +105,8 @@ const AllStocksPage = () => {
   }, [rsiFilter, volumeFilter, changeFilter, directionFilter, showOnlyFavorites, priceRange]);
 
   const fetchAllStocks = async () => {
-    try {
-      setLoading(true);
+      try {
+        setLoading(true);
       // Önce tüm sembolleri çek
       const symbolsResponse = await apiService.getAllSymbols();
       const symbols = symbolsResponse.data;
@@ -122,13 +122,13 @@ const AllStocksPage = () => {
       }
       
       setStocks(stockDetails);
-      setLastUpdated(new Date());
-      setLoading(false);
+        setLastUpdated(new Date());
+        setLoading(false);
       setRefreshing(false);
-    } catch (err) {
+      } catch (err) {
       setError('Hisse senetleri yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
       console.error('Hata:', err);
-      setLoading(false);
+        setLoading(false);
       setRefreshing(false);
     }
   };
@@ -273,16 +273,16 @@ const AllStocksPage = () => {
               <Typography variant="h5" sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
                 <ShowChartIcon sx={{ mr: 1, color: theme.palette.primary.main }} />
                 BIST Tarama
-              </Typography>
+      </Typography>
             </Grid>
             
             <Grid item xs={12} sm={6} md={8}>
               <Box sx={{ display: 'flex', gap: 1, justifyContent: { xs: 'flex-start', sm: 'flex-end' } }}>
-                <TextField
+      <TextField
                   placeholder="Ara (Ctrl+K)"
-                  variant="outlined"
+        variant="outlined"
                   size="small"
-                  value={searchTerm}
+        value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   InputProps={{
                     startAdornment: (
@@ -325,7 +325,7 @@ const AllStocksPage = () => {
                     {refreshing ? <SyncIcon fontSize="small" className="rotating" /> : <RefreshIcon fontSize="small" />}
                   </IconButton>
                 </Tooltip>
-              </Box>
+        </Box>
             </Grid>
           </Grid>
         </Paper>
@@ -349,7 +349,7 @@ const AllStocksPage = () => {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
                 Gelişmiş Filtreleme
-              </Typography>
+          </Typography>
               <Box>
                 <Button 
                   size="small" 
@@ -364,8 +364,8 @@ const AllStocksPage = () => {
                 </IconButton>
               </Box>
             </Box>
-            
-            <Grid container spacing={3}>
+          
+          <Grid container spacing={3}>
               {/* Yön Filtreleri */}
               <Grid item xs={12} md={4}>
                 <Typography variant="body2" sx={{ mb: 1, fontWeight: 'medium' }}>
@@ -470,8 +470,8 @@ const AllStocksPage = () => {
                     </Typography>
                   </Box>
                 </Box>
-              </Grid>
-              
+          </Grid>
+          
               {/* Favoriler Filtresi */}
               <Grid item xs={12}>
                 <Divider sx={{ my: 1 }} />
@@ -498,117 +498,117 @@ const AllStocksPage = () => {
         
         {/* Ana İçerik - Hisse Tablosu */}
         <Box sx={{ flexGrow: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        {loading ? (
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            height: '100%' 
-          }}>
-            <CircularProgress size={40} thickness={4} />
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-              Hisse verileri yükleniyor...
-            </Typography>
-          </Box>
-        ) : error ? (
-          <Alert 
-            severity="error" 
-            sx={{ 
-              borderRadius: {xs: 0, sm: 2}, 
-              backgroundColor: theme.palette.mode === 'dark' ? 'rgba(211, 47, 47, 0.1)' : undefined 
-            }}
-          >
-            {error}
-          </Alert>
-        ) : (
-          <>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1, py: 0.5 }}>
-              <Typography variant="body2" color="text.secondary">
-                {filteredStocks.length} adet hisse gösteriliyor (toplam {stocks.length})
+          {loading ? (
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              height: '100%' 
+            }}>
+              <CircularProgress size={40} thickness={4} />
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                Hisse verileri yükleniyor...
               </Typography>
-              
-              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                {filterCount > 0 && (
-                  <Chip 
-                    label={`${filterCount} aktif filtre`}
-                    size="small" 
-                    color="primary"
-                    onDelete={clearAllFilters}
-                    sx={{ borderRadius: '12px' }}
-                  />
-                )}
+            </Box>
+          ) : error ? (
+            <Alert 
+              severity="error" 
+              sx={{ 
+                borderRadius: {xs: 0, sm: 2}, 
+                backgroundColor: theme.palette.mode === 'dark' ? 'rgba(211, 47, 47, 0.1)' : undefined 
+              }}
+            >
+              {error}
+            </Alert>
+          ) : (
+            <>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1, py: 0.5 }}>
+                <Typography variant="body2" color="text.secondary">
+                  {filteredStocks.length} adet hisse gösteriliyor (toplam {stocks.length})
+                </Typography>
                 
-                {directionFilter !== 'all' && (
-                  <Chip 
-                    label={directionFilter === 'potential-up' ? 'Potansiyel Yükseliş' : 'Aşırı Satış'} 
-                    size="small" 
-                    onDelete={() => setDirectionFilter('all')} 
-                    sx={{ borderRadius: '12px' }}
-                    color={directionFilter === 'potential-up' ? 'success' : 'secondary'}
-                  />
-                )}
-                
-                {rsiFilter !== 'all' && (
-                  <Chip 
-                    label={`RSI: ${rsiFilter === 'oversold' ? 'Aşırı Satış' : 
-                            rsiFilter === 'neutral' ? 'Nötr' : 
-                            rsiFilter === 'overbought' ? 'Aşırı Alış' : '50-60'}`} 
-                    size="small" 
-                    onDelete={() => setRsiFilter('all')} 
-                    sx={{ borderRadius: '12px' }}
-                  />
-                )}
-                
-                {volumeFilter !== 'all' && (
-                  <Chip 
-                    label={`Hacim: ${volumeFilter === 'above' ? 'Ort. Üstü' : 
-                            volumeFilter === 'high' ? 'Yüksek' : 'Çok Yüksek'}`} 
-                    size="small" 
-                    onDelete={() => setVolumeFilter('all')} 
-                    sx={{ borderRadius: '12px' }}
-                  />
-                )}
-                
-                {changeFilter !== 'all' && (
-                  <Chip 
-                    label={`Değişim: ${changeFilter === 'up' ? 'Yükseliş' : 
-                            changeFilter === 'down' ? 'Düşüş' : 'Yüksek Değişim'}`} 
-                    size="small" 
-                    onDelete={() => setChangeFilter('all')} 
-                    sx={{ borderRadius: '12px' }}
-                  />
-                )}
-                
-                {(priceRange[0] > 0 || priceRange[1] < 1000) && (
-                  <Chip 
-                    label={`Fiyat: ${priceRange[0]}₺ - ${priceRange[1]}₺`} 
-                    size="small" 
-                    onDelete={() => setPriceRange([0, 1000])} 
-                    sx={{ borderRadius: '12px' }}
-                  />
-                )}
-                
-                {showOnlyFavorites && (
-                  <Chip 
-                    icon={<StarIcon fontSize="small" />}
-                    label="Sadece Favoriler"
-                    size="small" 
-                    onDelete={() => setShowOnlyFavorites(false)} 
-                    sx={{ borderRadius: '12px' }}
-                    color="warning"
-                  />
-                )}
+                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                  {filterCount > 0 && (
+                    <Chip 
+                      label={`${filterCount} aktif filtre`}
+                      size="small" 
+                      color="primary"
+                      onDelete={clearAllFilters}
+                      sx={{ borderRadius: '12px' }}
+                    />
+                  )}
+                  
+                  {directionFilter !== 'all' && (
+                    <Chip 
+                      label={directionFilter === 'potential-up' ? 'Potansiyel Yükseliş' : 'Aşırı Satış'} 
+                      size="small" 
+                      onDelete={() => setDirectionFilter('all')} 
+                      sx={{ borderRadius: '12px' }}
+                      color={directionFilter === 'potential-up' ? 'success' : 'secondary'}
+                    />
+                  )}
+                  
+                  {rsiFilter !== 'all' && (
+                    <Chip 
+                      label={`RSI: ${rsiFilter === 'oversold' ? 'Aşırı Satış' : 
+                              rsiFilter === 'neutral' ? 'Nötr' : 
+                              rsiFilter === 'overbought' ? 'Aşırı Alış' : '50-60'}`} 
+                      size="small" 
+                      onDelete={() => setRsiFilter('all')} 
+                      sx={{ borderRadius: '12px' }}
+                    />
+                  )}
+                  
+                  {volumeFilter !== 'all' && (
+                    <Chip 
+                      label={`Hacim: ${volumeFilter === 'above' ? 'Ort. Üstü' : 
+                              volumeFilter === 'high' ? 'Yüksek' : 'Çok Yüksek'}`} 
+                      size="small" 
+                      onDelete={() => setVolumeFilter('all')} 
+                      sx={{ borderRadius: '12px' }}
+                    />
+                  )}
+                  
+                  {changeFilter !== 'all' && (
+                    <Chip 
+                      label={`Değişim: ${changeFilter === 'up' ? 'Yükseliş' : 
+                              changeFilter === 'down' ? 'Düşüş' : 'Yüksek Değişim'}`} 
+                      size="small" 
+                      onDelete={() => setChangeFilter('all')} 
+                      sx={{ borderRadius: '12px' }}
+                    />
+                  )}
+                  
+                  {(priceRange[0] > 0 || priceRange[1] < 1000) && (
+                    <Chip 
+                      label={`Fiyat: ${priceRange[0]}₺ - ${priceRange[1]}₺`} 
+                      size="small" 
+                      onDelete={() => setPriceRange([0, 1000])} 
+                      sx={{ borderRadius: '12px' }}
+                    />
+                  )}
+                  
+                  {showOnlyFavorites && (
+                    <Chip 
+                      icon={<StarIcon fontSize="small" />}
+                      label="Sadece Favoriler"
+                      size="small" 
+                      onDelete={() => setShowOnlyFavorites(false)} 
+                      sx={{ borderRadius: '12px' }}
+                      color="warning"
+                    />
+                  )}
+                </Box>
               </Box>
-            </Box>
-            
-            <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
-              <StockTable stocks={filteredStocks} onStockClick={handleStockClick} />
-            </Box>
-          </>
-        )}
+              
+              <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
+                <StockTable stocks={filteredStocks} onStockClick={handleStockClick} />
+              </Box>
+        </>
+      )}
         </Box>
-      </Container>
+    </Container>
       
       {/* CSS - Dönen Simge Animasyonu */}
       <style jsx="true">{`

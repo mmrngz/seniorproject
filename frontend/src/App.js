@@ -2,12 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Box } from '@mui/material';
+import { Box, Alert, Snackbar } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 
 // Bileşenler
 import Header from './components/Header';
-import Login from './components/Login';
 
 // Sayfalar
 import HomePage from './pages/HomePage';
@@ -15,6 +14,8 @@ import AllStocksPage from './pages/AllStocksPage';
 import PotentialRisersPage from './pages/PotentialRisersPage';
 import DashboardPage from './pages/DashboardPage';
 import StockDetailPage from './pages/StockDetailPage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
 
 // Varsayılan olarak koyu tema kullan
 const prefersDarkMode = true;
@@ -22,6 +23,50 @@ const prefersDarkMode = true;
 const App = () => {
   const [user, setUser] = useState(null);
   const [darkMode, setDarkMode] = useState(prefersDarkMode);
+  const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
+  
+  // LocalStorage'dan kullanıcı bilgilerini yükle
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (error) {
+        console.error('Kullanıcı verisi çözümlenemedi:', error);
+        localStorage.removeItem('user');
+      }
+    }
+  }, []);
+  
+  // Giriş işlemi
+  const handleLogin = (userData) => {
+    setUser(userData);
+    showNotification('Başarıyla giriş yapıldı!', 'success');
+  };
+  
+  // Çıkış işlemi
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    setUser(null);
+    showNotification('Çıkış yapıldı', 'info');
+  };
+  
+  // Bildirim gösterme
+  const showNotification = (message, severity = 'info') => {
+    setNotification({
+      open: true,
+      message,
+      severity
+    });
+  };
+  
+  // Bildirim kapatma
+  const handleCloseNotification = () => {
+    setNotification({
+      ...notification,
+      open: false
+    });
+  };
   
   // Modern borsalar için ultra modern tema oluştur
   const theme = createTheme({
@@ -183,6 +228,7 @@ const App = () => {
             background: darkMode 
               ? 'linear-gradient(135deg, #4B5FFF 0%, #2962FF 100%)' 
               : 'linear-gradient(135deg, #2962FF 0%, #0039CB 100%)',
+            color: '#FFFFFF',
           },
           outlinedPrimary: {
             borderWidth: '1.5px',
@@ -335,27 +381,6 @@ const App = () => {
     },
   });
   
-  // Sayfa yüklendiğinde localStorage'dan kullanıcı bilgilerini kontrol et
-  useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-  }, []);
-  
-  // Giriş işlemi
-  const handleLogin = (userData) => {
-    setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
-  };
-  
-  // Çıkış işlemi
-  const handleLogout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-  };
-  
   // Tema değiştirme
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
@@ -379,29 +404,50 @@ const App = () => {
           <Header isLoggedIn={!!user} onLogout={handleLogout} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
           
           <Box sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-            <Routes>
-              {/* Ana Sayfa */}
-              <Route path="/" element={<HomePage />} />
-              
-              {/* Hisse Sayfaları */}
-              <Route path="/all-stocks" element={<AllStocksPage />} />
-              <Route path="/potential-risers" element={<PotentialRisersPage />} />
-              <Route path="/stocks/:symbol" element={<StockDetailPage />} />
-              
-              {/* Kullanıcı Sayfaları */}
-              <Route 
-                path="/login" 
-                element={user ? <Navigate to="/dashboard" /> : <Login onLogin={handleLogin} />} 
-              />
-              <Route 
-                path="/dashboard" 
-                element={user ? <DashboardPage user={user} /> : <Navigate to="/login" />} 
-              />
-              
-              {/* Bulunamayan sayfalar için ana sayfaya yönlendir */}
-              <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
+          <Routes>
+            {/* Ana Sayfa */}
+            <Route path="/" element={<HomePage />} />
+            
+            {/* Hisse Sayfaları */}
+            <Route path="/all-stocks" element={<AllStocksPage />} />
+            <Route path="/potential-risers" element={<PotentialRisersPage />} />
+            <Route path="/stocks/:symbol" element={<StockDetailPage />} />
+            
+            {/* Giriş/Kayıt Sayfaları */}
+            <Route path="/login" element={
+              user ? <Navigate to="/dashboard" /> : <LoginPage onLogin={handleLogin} />
+            } />
+            <Route path="/register" element={
+              user ? <Navigate to="/dashboard" /> : <RegisterPage />
+            } />
+            
+            {/* Kullanıcı Sayfaları */}
+            <Route path="/dashboard" element={
+              user ? <DashboardPage /> : <Navigate to="/login" />
+            } />
+            <Route path="/favorites" element={
+              user ? <Navigate to="/dashboard" /> : <Navigate to="/login" />
+            } />
+            <Route path="/settings" element={
+              user ? <Navigate to="/dashboard" /> : <Navigate to="/login" />
+            } />
+            
+            {/* Bulunamayan sayfalar için ana sayfaya yönlendir */}
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
           </Box>
+          
+          {/* Bildirimler */}
+          <Snackbar 
+            open={notification.open} 
+            autoHideDuration={6000} 
+            onClose={handleCloseNotification}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+          >
+            <Alert onClose={handleCloseNotification} severity={notification.severity} variant="filled">
+              {notification.message}
+            </Alert>
+          </Snackbar>
         </Box>
       </Router>
     </ThemeProvider>

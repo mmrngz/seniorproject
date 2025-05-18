@@ -4,6 +4,8 @@ import logging
 
 from app.api.routes import stocks
 from app.api.routes import technical
+from app.api.routes import auth
+from app.api.routes import dashboard
 from app.db.session import engine, Base
 from app.services.scheduler_service import SchedulerService
 
@@ -30,10 +32,10 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS ayarları - Frontend'in erişimine izin ver
+# CORS ayarları - tüm originlere izin ver
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost", "http://127.0.0.1", "http://localhost:80", "http://127.0.0.1:80"],  # React uygulamasının adresleri
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -42,6 +44,8 @@ app.add_middleware(
 # Hisse senedi rotalarını kaydet
 app.include_router(stocks.router, prefix="/api/stocks", tags=["stocks"])
 app.include_router(technical.router, prefix="/api/technical", tags=["technical"])
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
 
 # Uygulama başlatıldığında
 @app.on_event("startup")

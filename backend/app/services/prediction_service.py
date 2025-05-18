@@ -19,6 +19,7 @@ from ta.volatility import BollingerBands, AverageTrueRange
 from tensorflow.keras.callbacks import EarlyStopping
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import json
+import multiprocessing
 
 from app.models.base_stock import BaseStock
 from app.models.prediction_stock import PredictionStock
@@ -936,8 +937,30 @@ class PredictionService:
             # Son 'sequence_length' kadar veriyi al
             recent_data = df[feature_columns].values[-sequence_length:]
             
+            # Veri boyutlarını kontrol et
+            if len(recent_data) < sequence_length:
+                self.logger.warning(f"Yetersiz veri noktası: {len(recent_data)}/{sequence_length}")
+                # Eksik kısımları tekrarlayarak doldur
+                pad_count = sequence_length - len(recent_data)
+                if len(recent_data) > 0:
+                    padding = np.repeat([recent_data[0]], pad_count, axis=0)
+                    recent_data = np.vstack([padding, recent_data])
+                else:
+                    # Eğer hiç veri yoksa, sıfırlar ile doldur
+                    recent_data = np.zeros((sequence_length, len(feature_columns)))
+            
             # Normalize et
-            recent_scaled = scaler.transform(recent_data)
+            try:
+                recent_scaled = scaler.transform(recent_data)
+            except Exception as e:
+                self.logger.error(f"Normalizasyon hatası: {str(e)}")
+                # Manuel normalizasyon dene
+                recent_scaled = np.zeros_like(recent_data)
+                for i in range(recent_data.shape[1]):
+                    col_data = recent_data[:, i]
+                    col_min, col_max = np.min(col_data), np.max(col_data)
+                    if col_max > col_min:
+                        recent_scaled[:, i] = (col_data - col_min) / (col_max - col_min)
             
             # Tek bir örnek olarak şekillendir
             X_pred = np.array([recent_scaled])
@@ -946,7 +969,9 @@ class PredictionService:
             
         except Exception as e:
             self.logger.error(f"Tahmin verisi hazırlama hatası: {str(e)}")
-            raise
+            self.logger.error(traceback.format_exc())
+            # Hata durumunda uygun boyutlarda sıfır dizisi döndür
+            return np.zeros((1, sequence_length, len(feature_columns)))
 
     def predict_stock_with_dataframe(self, symbol: str, model_type: str = 'lstm') -> Dict[str, Any]:
         """
@@ -1565,42 +1590,111 @@ class PredictionService:
             self.logger.info(f"Toplam {len(symbols)} hisse için saatlik veri ile tahmin yapılıyor")
             
             results = []
+            failed_symbols = []
             
             # Her sembol için tahmin yap
             for i, symbol in enumerate(symbols):
                 try:
                     self.logger.info(f"Hisse {i+1}/{len(symbols)}: {symbol} için tahmin yapılıyor")
                     
+                    # Önce veritabanında tahmin var mı kontrol et
+                    existing_prediction = self.get_prediction_by_symbol(db, symbol)
+                    if existing_prediction and not self._is_prediction_expired(existing_prediction):
+                        self.logger.info(f"{symbol} için mevcut tahmin kullanılıyor")
+                        results.append(existing_prediction)
+                        continue
+                    
                     # BaseStock kaydını al
                     stock = db.query(BaseStock).filter(BaseStock.symbol == symbol).first()
                     
                     if not stock:
                         self.logger.warning(f"{symbol} sembolü için BaseStock kaydı bulunamadı")
+                        failed_symbols.append(symbol)
                         continue
                     
-                    # Tahmin yap
-                    prediction = self.predict_stock(db, stock, model_type='all')
+                    # Tahmin yapmak için zaman aşımı kontrolü ekleyelim
+                    import signal
                     
-                    if prediction:
-                        self.logger.info(f"{symbol} için tahmin başarıyla yapıldı")
-                        results.append(prediction)
-                    else:
-                        self.logger.warning(f"{symbol} için tahmin yapılamadı")
+                    def timeout_handler(signum, frame):
+                        raise TimeoutError(f"{symbol} için tahmin zaman aşımına uğradı")
+                        
+                    # 30 saniye zaman aşımı
+                    signal.signal(signal.SIGALRM, timeout_handler)
+                    signal.alarm(30)
+                    
+                    try:
+                        # Tahmin yap
+                        prediction = self.predict_stock(db, stock, model_type='all')
+                        
+                        if prediction:
+                            self.logger.info(f"{symbol} için tahmin başarıyla yapıldı")
+                            results.append(prediction)
+                        else:
+                            self.logger.warning(f"{symbol} için tahmin yapılamadı")
+                            failed_symbols.append(symbol)
+                        
+                        # Zaman aşımını iptal et
+                        signal.alarm(0)
+                    except TimeoutError as e:
+                        # Zaman aşımını iptal et
+                        signal.alarm(0)
+                        self.logger.error(f"{str(e)}")
+                        failed_symbols.append(symbol)
                     
                     # API limitlerine takılmamak için kısa bir bekleme
                     time.sleep(2)
                     
                 except Exception as e:
                     self.logger.error(f"{symbol} için tahmin hatası: {str(e)}")
+                    failed_symbols.append(symbol)
                     continue
             
             self.logger.info(f"Toplam {len(results)}/{len(symbols)} hisse için tahmin tamamlandı")
+            if failed_symbols:
+                self.logger.warning(f"Tahmin yapılamayan hisseler: {', '.join(failed_symbols)}")
+            
             return results
             
         except Exception as e:
             self.logger.error(f"Saatlik veri ile toplu tahmin hatası: {str(e)}")
+            self.logger.error(traceback.format_exc())
             return []
+    
+    def _is_prediction_expired(self, prediction: Dict[str, Any]) -> bool:
+        """
+        Tahmin verisinin süresi dolmuş mu kontrol eder
         
+        Args:
+            prediction: Kontrol edilecek tahmin verisi
+            
+        Returns:
+            bool: Süresi dolmuşsa True, değilse False
+        """
+        try:
+            # Son güncelleme zamanını kontrol et
+            last_updated_str = prediction.get("last_updated")
+            if not last_updated_str:
+                return True
+                
+            # String formatını datetime'a çevir
+            if isinstance(last_updated_str, str):
+                try:
+                    last_updated = datetime.fromisoformat(last_updated_str)
+                except:
+                    return True
+            else:
+                last_updated = last_updated_str
+                
+            # Şu anki zaman
+            now = datetime.now()
+            
+            # 12 saatten eski ise süresi dolmuş kabul et
+            return (now - last_updated) > timedelta(hours=12)
+            
+        except Exception as e:
+            self.logger.error(f"Tahmin süresi kontrolü hatası: {str(e)}")
+            return True
+    
     def _prepare_prediction_response(self, prediction_record: PredictionStock) -> Dict[str, Any]:
         """
         Tahmin kaydını API yanıtı formatına dönüştürür

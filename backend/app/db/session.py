@@ -3,6 +3,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 import os
 from dotenv import load_dotenv
+from typing import Generator
+from .database import SessionLocal
 
 # .env dosyasını yükle
 load_dotenv()
@@ -25,8 +27,11 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # Model tabanını oluştur
 Base = declarative_base()
 
-# Veritabanı oturumunu elde etme fonksiyonu
-def get_db():
+def get_db() -> Generator:
+    """
+    Veritabanı oturumu için dependency injection fonksiyonu.
+    FastAPI endpoint'lerinde kullanılır.
+    """
     db = SessionLocal()
     try:
         yield db

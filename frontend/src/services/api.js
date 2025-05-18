@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// API için temel URL
-const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+// API için temel URL - Docker ortamında çalışırken
+const baseURL = 'http://localhost:8000/api';
 
 // Axios instance oluştur
 const api = axios.create({
@@ -14,25 +14,21 @@ const api = axios.create({
 // İstek interceptor - request başlıklarına token eklemek için
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    // CORS için ek header'lar
+    config.headers['Access-Control-Allow-Origin'] = '*';
+    config.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS';
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    return Promise.reject(error);
+  }
 );
 
-// Yanıt interceptor - token geçersiz ise otomatik çıkış vb.
+// Yanıt interceptor - hata yönetimi
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
-      // Token geçersiz veya süresi dolmuş
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
-    }
+    console.error('API Error:', error);
     return Promise.reject(error);
   }
 );
@@ -48,6 +44,7 @@ const apiService = {
   getFilteredStocks: (params) => api.get('/stocks/filtered', { params }),
   getFilteredPredictions: (runPredictions = false) => api.get('/stocks/filtered-predictions', { params: { run_predictions: runPredictions } }),
   getPredictionBySymbol: (symbol, refresh = false, modelType = 'all') => api.get(`/stocks/prediction/${symbol}`, { params: { refresh, model_type: modelType } }),
+  getPotentialRisers: (force = false) => api.get('/stocks/filtered-predictions', { params: { run_predictions: force, timeout: 60 } }),
   
   // Saatlik Veri ve Model Özellikleri
   getHourlyData: (symbol, days = 45) => api.get(`/stocks/saatlik-data/${symbol}`, { params: { days } }),

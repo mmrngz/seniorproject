@@ -16,172 +16,145 @@ import {
   TableHead,
   TableRow,
   Chip,
-  Button
+  Button,
+  IconButton,
+  Tooltip
 } from '@mui/material';
+import { useNavigate, Link } from 'react-router-dom';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import HistoryIcon from '@mui/icons-material/History';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
-import api from '../services/api';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import DeleteIcon from '@mui/icons-material/Delete';
+import StarIcon from '@mui/icons-material/Star';
+import StarOutlineIcon from '@mui/icons-material/StarOutline';
 
-const DashboardPage = ({ user }) => {
-  const [value, setValue] = useState(0);
+import dashboardService from '../services/dashboardService';
+import apiService from '../services/api';
+
+const DashboardPage = () => {
+  const navigate = useNavigate();
+  const [tabValue, setValue] = useState(0);
   const [favoriteStocks, setFavoriteStocks] = useState([]);
+  const [favoriteStocksData, setFavoriteStocksData] = useState([]);
   const [predictions, setPredictions] = useState([]);
+  const [predictionHistory, setPredictionHistory] = useState([]);
+  const [modelComparison, setModelComparison] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
+  // Dashboard verilerini yükle
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        // Gerçek uygulamada API'dan kullanıcının favori hisselerini ve tahminleri alacak
-        // Burada örnek veriler kullanıyoruz
-        
-        // Normalde: const response = await api.get('/user/favorites');
-        const mockFavorites = [
-          { id: 1, symbol: 'THYAO', name: 'Türk Hava Yolları', last_price: 235.60, daily_change: 2.3, rsi: 55.2, relative_volume: 1.8 },
-          { id: 2, symbol: 'ASELS', name: 'Aselsan', last_price: 44.78, daily_change: -0.8, rsi: 48.5, relative_volume: 1.2 },
-          { id: 3, symbol: 'KRDMD', name: 'Kardemir', last_price: 12.42, daily_change: 1.1, rsi: 52.7, relative_volume: 1.6 },
-        ];
-        
-        // Normalde: const predResponse = await api.get('/stocks/predictions');
-        const mockPredictions = [
-          { 
-            id: 1, 
-            symbol: 'THYAO', 
-            current_price: 235.60, 
-            lstm_predicted_price: 241.2,
-            lstm_change_percent: 2.4,
-            gru_predicted_price: 240.5,
-            gru_change_percent: 2.1,
-            best_model: 'lstm',
-            prediction_date: new Date().toISOString()
-          },
-          { 
-            id: 2, 
-            symbol: 'KRDMD', 
-            current_price: 12.42,
-            lstm_predicted_price: 12.90,
-            lstm_change_percent: 3.9,
-            gru_predicted_price: 12.78,
-            gru_change_percent: 2.9,
-            best_model: 'lstm',
-            prediction_date: new Date().toISOString()
-          },
-        ];
-        
-        setFavoriteStocks(mockFavorites);
-        setPredictions(mockPredictions);
-        setLoading(false);
-      } catch (err) {
-        setError('Dashboard verileri yüklenirken bir hata oluştu.');
-        setLoading(false);
-      }
-    };
-
     fetchDashboardData();
   }, []);
 
+  // Dashboard verilerini getir
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError('');
+
+      // Favori hisseleri getir
+      const favoritesData = await dashboardService.getFavorites();
+      setFavoriteStocks(favoritesData);
+
+      // Son tahminleri getir
+      const predictionsData = await dashboardService.getLatestPredictions();
+      setPredictions(predictionsData);
+
+      // Tahmin geçmişini getir
+      const historyData = await dashboardService.getPredictionHistory();
+      setPredictionHistory(historyData);
+
+      // Model karşılaştırmasını getir
+      const comparisonData = await dashboardService.getModelComparison();
+      setModelComparison(comparisonData.models || []);
+
+      // Favori hisselerin güncel verilerini getir
+      if (favoritesData.length > 0) {
+        await fetchFavoriteStocksData(favoritesData);
+      }
+
+      setLoading(false);
+    } catch (err) {
+      setError('Dashboard verileri yüklenirken bir hata oluştu: ' + err.message);
+      setLoading(false);
+    }
+  };
+
+  // Favori hisse verilerini getir
+  const fetchFavoriteStocksData = async (favorites) => {
+    try {
+      const stocksData = [];
+      
+      // Her bir favori hisse için detay bilgilerini getir
+      for (const favorite of favorites) {
+        try {
+          const response = await apiService.getStockBySymbol(favorite.symbol);
+          stocksData.push(response.data);
+        } catch (error) {
+          console.error(`${favorite.symbol} için veri alınamadı:`, error);
+        }
+      }
+      
+      setFavoriteStocksData(stocksData);
+    } catch (error) {
+      console.error('Favori hisse verileri alınırken hata:', error);
+    }
+  };
+
+  // Yenile
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchDashboardData().finally(() => setRefreshing(false));
+  };
+
+  // Favori hisseye git
+  const handleStockClick = (symbol) => {
+    navigate(`/stocks/${symbol}`);
+  };
+
+  // Favorilerden çıkar
+  const handleRemoveFavorite = async (symbol, event) => {
+    event.stopPropagation();
+    try {
+      await dashboardService.removeFavorite(symbol);
+      // Güncel favori listesini getir
+      const favoritesData = await dashboardService.getFavorites();
+      setFavoriteStocks(favoritesData);
+      // Favori hisselerin güncel verilerini getir
+      await fetchFavoriteStocksData(favoritesData);
+    } catch (error) {
+      console.error('Favori silinirken hata:', error);
+    }
+  };
+
+  // Tab değişimi
   const handleTabChange = (event, newValue) => {
     setValue(newValue);
   };
 
-  const renderPredictionHistory = () => {
-    // Tahmin geçmişi - gerçek uygulamada API'dan alınacak
-    return (
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Hisse</TableCell>
-              <TableCell>Tahmin Tarihi</TableCell>
-              <TableCell>Tahmin Fiyat</TableCell>
-              <TableCell>Gerçekleşen</TableCell>
-              <TableCell>Doğruluk</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            <TableRow>
-              <TableCell>THYAO</TableCell>
-              <TableCell>1 Hafta Önce</TableCell>
-              <TableCell>230.50 ₺</TableCell>
-              <TableCell>235.60 ₺</TableCell>
-              <TableCell>
-                <Chip label="Başarılı" color="success" size="small" />
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>ASELS</TableCell>
-              <TableCell>1 Hafta Önce</TableCell>
-              <TableCell>46.20 ₺</TableCell>
-              <TableCell>44.78 ₺</TableCell>
-              <TableCell>
-                <Chip label="Başarısız" color="error" size="small" />
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </TableContainer>
-    );
-  };
-
-  const renderModelComparison = () => {
-    // Model karşılaştırması - gerçek uygulamada API'dan alınacak
-    return (
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Model</TableCell>
-              <TableCell>Ortalama Doğruluk</TableCell>
-              <TableCell>MSE</TableCell>
-              <TableCell>MAE</TableCell>
-              <TableCell>Başarı Oranı</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            <TableRow>
-              <TableCell>LSTM</TableCell>
-              <TableCell>85.2%</TableCell>
-              <TableCell>0.0043</TableCell>
-              <TableCell>0.0021</TableCell>
-              <TableCell>
-                <Chip label="Yüksek" color="success" size="small" />
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>GRU</TableCell>
-              <TableCell>87.5%</TableCell>
-              <TableCell>0.0038</TableCell>
-              <TableCell>0.0019</TableCell>
-              <TableCell>
-                <Chip label="Yüksek" color="success" size="small" />
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Attention</TableCell>
-              <TableCell>83.1%</TableCell>
-              <TableCell>0.0051</TableCell>
-              <TableCell>0.0025</TableCell>
-              <TableCell>
-                <Chip label="Orta" color="primary" size="small" />
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </TableContainer>
-    );
-  };
-
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 8 }}>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Dashboard
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" component="h1">
+          Dashboard
+        </Typography>
+        
+        <Button 
+          variant="outlined" 
+          startIcon={<RefreshIcon />}
+          onClick={handleRefresh}
+          disabled={refreshing}
+        >
+          {refreshing ? 'Yenileniyor...' : 'Yenile'}
+        </Button>
+      </Box>
       
       <Typography variant="body1" color="text.secondary" paragraph>
-        Hoş geldiniz, {user?.name || 'Kullanıcı'}! Favori hisselerinizi ve tahminleri buradan takip edebilirsiniz.
+        Hoş geldiniz! Favori hisselerinizi ve tahminleri buradan takip edebilirsiniz.
       </Typography>
       
       {loading ? (
@@ -200,7 +173,7 @@ const DashboardPage = ({ user }) => {
                   Favori Hisseleriniz
                 </Typography>
                 
-                {favoriteStocks.length > 0 ? (
+                {favoriteStocksData.length > 0 ? (
                   <TableContainer>
                     <Table size="small">
                       <TableHead>
@@ -212,10 +185,20 @@ const DashboardPage = ({ user }) => {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {favoriteStocks.map((stock) => (
-                          <TableRow key={stock.id}>
-                            <TableCell>{stock.symbol}</TableCell>
-                            <TableCell>{Number(stock.last_price).toFixed(3)} ₺</TableCell>
+                        {favoriteStocksData.map((stock) => (
+                          <TableRow 
+                            key={stock.symbol} 
+                            hover
+                            onClick={() => handleStockClick(stock.symbol)}
+                            sx={{ cursor: 'pointer' }}
+                          >
+                            <TableCell>
+                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                <StarIcon sx={{ color: 'warning.main', mr: 1, fontSize: 16 }} />
+                                {stock.symbol}
+                              </Box>
+                            </TableCell>
+                            <TableCell>{Number(stock.last_price).toFixed(2)} ₺</TableCell>
                             <TableCell>
                               <Typography
                                 variant="body2"
@@ -225,7 +208,25 @@ const DashboardPage = ({ user }) => {
                               </Typography>
                             </TableCell>
                             <TableCell>
-                              <Button size="small" variant="outlined">Detay</Button>
+                              <Tooltip title="Favorilerden çıkar">
+                                <IconButton 
+                                  size="small" 
+                                  color="error"
+                                  onClick={(e) => handleRemoveFavorite(stock.symbol, e)}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Button 
+                                size="small" 
+                                variant="outlined" 
+                                sx={{ ml: 1 }}
+                                component={Link}
+                                to={`/stocks/${stock.symbol}`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Detay
+                              </Button>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -252,29 +253,37 @@ const DashboardPage = ({ user }) => {
                         <TableRow>
                           <TableCell>Sembol</TableCell>
                           <TableCell>Tahmin Fiyat</TableCell>
-                          <TableCell>Değişim</TableCell>
                           <TableCell>Model</TableCell>
+                          <TableCell>İşlem</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {predictions.map((pred) => (
-                          <TableRow key={pred.id}>
+                          <TableRow 
+                            key={pred.id}
+                            hover
+                            onClick={() => handleStockClick(pred.symbol)}
+                            sx={{ cursor: 'pointer' }}
+                          >
                             <TableCell>{pred.symbol}</TableCell>
-                            <TableCell>{Number(pred.lstm_predicted_price).toFixed(3)} ₺</TableCell>
-                            <TableCell>
-                              <Typography
-                                variant="body2"
-                                sx={{ color: pred.lstm_change_percent >= 0 ? 'success.main' : 'error.main' }}
-                              >
-                                %{Number(pred.lstm_change_percent).toFixed(2)}
-                              </Typography>
-                            </TableCell>
+                            <TableCell>{Number(pred.prediction_price).toFixed(2)} ₺</TableCell>
                             <TableCell>
                               <Chip 
-                                label={pred.best_model.toUpperCase()} 
+                                label={pred.model_used} 
                                 size="small"
                                 color="primary"
                               />
+                            </TableCell>
+                            <TableCell>
+                              <Button 
+                                size="small" 
+                                variant="outlined"
+                                component={Link}
+                                to={`/stocks/${pred.symbol}`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Detay
+                              </Button>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -290,22 +299,100 @@ const DashboardPage = ({ user }) => {
           
           <Box sx={{ width: '100%', mt: 4 }}>
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-              <Tabs value={value} onChange={handleTabChange} aria-label="dashboard tabs">
+              <Tabs value={tabValue} onChange={handleTabChange} aria-label="dashboard tabs">
                 <Tab icon={<HistoryIcon />} iconPosition="start" label="Tahmin Geçmişi" />
                 <Tab icon={<CompareArrowsIcon />} iconPosition="start" label="Model Karşılaştırması" />
               </Tabs>
             </Box>
             <Box sx={{ p: 2 }}>
-              {value === 0 && (
+              {tabValue === 0 && (
                 <Box>
                   <Typography variant="h6" gutterBottom>Tahmin Geçmişi</Typography>
-                  {renderPredictionHistory()}
+                  {predictionHistory.length > 0 ? (
+                    <TableContainer component={Paper}>
+                      <Table>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Hisse</TableCell>
+                            <TableCell>Tahmin Tarihi</TableCell>
+                            <TableCell>Tahmin Fiyat</TableCell>
+                            <TableCell>Gerçekleşen</TableCell>
+                            <TableCell>Doğruluk</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {predictionHistory.map((hist) => (
+                            <TableRow key={hist.id} hover>
+                              <TableCell>{hist.symbol}</TableCell>
+                              <TableCell>
+                                {new Date(hist.prediction_date).toLocaleDateString('tr-TR')}
+                              </TableCell>
+                              <TableCell>{Number(hist.prediction_price).toFixed(2)} ₺</TableCell>
+                              <TableCell>
+                                {hist.actual_price ? `${Number(hist.actual_price).toFixed(2)} ₺` : '-'}
+                              </TableCell>
+                              <TableCell>
+                                {hist.is_successful !== null ? (
+                                  <Chip 
+                                    label={hist.is_successful ? "Başarılı" : "Başarısız"} 
+                                    color={hist.is_successful ? "success" : "error"} 
+                                    size="small" 
+                                  />
+                                ) : '-'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  ) : (
+                    <Alert severity="info">Tahmin geçmişi bulunamadı.</Alert>
+                  )}
                 </Box>
               )}
-              {value === 1 && (
+              {tabValue === 1 && (
                 <Box>
                   <Typography variant="h6" gutterBottom>Model Karşılaştırması</Typography>
-                  {renderModelComparison()}
+                  {modelComparison.length > 0 ? (
+                    <TableContainer component={Paper}>
+                      <Table>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Model</TableCell>
+                            <TableCell>Ortalama Doğruluk</TableCell>
+                            <TableCell>MSE</TableCell>
+                            <TableCell>MAE</TableCell>
+                            <TableCell>Başarı Oranı</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {modelComparison.map((model, index) => (
+                            <TableRow key={index}>
+                              <TableCell>{model.model_name}</TableCell>
+                              <TableCell>{model.accuracy.toFixed(1)}%</TableCell>
+                              <TableCell>{model.mse.toFixed(4)}</TableCell>
+                              <TableCell>{model.mae.toFixed(4)}</TableCell>
+                              <TableCell>
+                                <Chip 
+                                  label={
+                                    model.success_rate >= 0.8 ? "Yüksek" :
+                                    model.success_rate >= 0.6 ? "Orta" : "Düşük"
+                                  } 
+                                  color={
+                                    model.success_rate >= 0.8 ? "success" :
+                                    model.success_rate >= 0.6 ? "primary" : "error"
+                                  } 
+                                  size="small" 
+                                />
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  ) : (
+                    <Alert severity="info">Model karşılaştırma verisi bulunamadı.</Alert>
+                  )}
                 </Box>
               )}
             </Box>

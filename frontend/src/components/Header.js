@@ -25,7 +25,7 @@ import {
   Chip,
   Fade
 } from '@mui/material';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Search as SearchIcon,
   Notifications as NotificationsIcon,
@@ -42,18 +42,38 @@ import {
   Dashboard as DashboardIcon,
   Favorite as FavoriteIcon,
   ExitToApp as ExitToAppIcon,
-  KeyboardArrowDown as KeyboardArrowDownIcon
+  KeyboardArrowDown as KeyboardArrowDownIcon,
+  Login as LoginIcon
 } from '@mui/icons-material';
 
 const Header = ({ isLoggedIn, onLogout, darkMode, toggleDarkMode }) => {
   const theme = useTheme();
   const location = useLocation();
+  const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [user, setUser] = useState(null);
+  
+  // Kullanıcı bilgilerini localStorage'dan al
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, [isLoggedIn]);
+  
+  // Çıkış işlemi
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    setUser(null);
+    if (onLogout) onLogout();
+    navigate('/login');
+    handleMenuClose();
+  };
   
   // Sayfada kaydırma durumunu izle
   useEffect(() => {
@@ -94,6 +114,76 @@ const Header = ({ isLoggedIn, onLogout, darkMode, toggleDarkMode }) => {
     { text: 'Potansiyel Yükseliş', icon: <TrendingUpIcon />, path: '/potential-risers' },
     { text: 'Analiz', icon: <AssessmentIcon />, path: '/dashboard' }
   ];
+
+  // Kullanıcı menü içeriği - giriş durumuna göre değişir
+  const userMenuContent = () => {
+    if (user) {
+      // Giriş yapmış kullanıcı için
+      return (
+        <>
+          <Box sx={{ px: 2, py: 1.5 }}>
+            <Typography variant="subtitle1" fontWeight="bold">
+              Merhaba, {user.display_name || user.username || 'Kullanıcı'}!
+            </Typography>
+            <Typography variant="body2" color="text.secondary">{user.email}</Typography>
+          </Box>
+          <Divider sx={{ my: 1 }} />
+          <MenuItem component={Link} to="/dashboard">
+            <ListItemIcon>
+              <DashboardIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Gösterge Paneli</ListItemText>
+          </MenuItem>
+          <MenuItem component={Link} to="/favorites">
+            <ListItemIcon>
+              <FavoriteIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Favori Hisselerim</ListItemText>
+          </MenuItem>
+          <MenuItem component={Link} to="/settings">
+            <ListItemIcon>
+              <SettingsIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Ayarlar</ListItemText>
+          </MenuItem>
+          <Divider sx={{ my: 1 }} />
+          <MenuItem onClick={handleLogout}>
+            <ListItemIcon>
+              <ExitToAppIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Çıkış Yap</ListItemText>
+          </MenuItem>
+        </>
+      );
+    } else {
+      // Giriş yapmamış kullanıcı için
+      return (
+        <>
+          <Box sx={{ px: 2, py: 1.5 }}>
+            <Typography variant="subtitle1" fontWeight="bold">Merhaba, Misafir Kullanıcı!</Typography>
+            <Typography variant="body2" color="text.secondary">guest@example.com</Typography>
+          </Box>
+          <Divider sx={{ my: 1 }} />
+          <MenuItem component={Link} to="/login">
+            <ListItemIcon>
+              <LoginIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText>Giriş Yap</ListItemText>
+          </MenuItem>
+        </>
+      );
+    }
+  };
+
+  // Kullanıcı avatar baş harfleri
+  const getInitials = () => {
+    if (user && user.display_name) {
+      return user.display_name.charAt(0).toUpperCase();
+    } else if (user && user.username) {
+      return user.username.charAt(0).toUpperCase();
+    }
+    return 'G'; // Misafir için
+  };
 
   return (
     <>
@@ -285,161 +375,133 @@ const Header = ({ isLoggedIn, onLogout, darkMode, toggleDarkMode }) => {
                 </IconButton>
               </Tooltip>
               
-              {/* Bildirimler */}
-              <Tooltip title="Bildirimler">
-                <IconButton 
-                  sx={{ 
-                    width: 36, 
-                    height: 36, 
-                    backgroundColor: theme.palette.mode === 'dark' 
-                      ? 'rgba(255, 255, 255, 0.05)' 
-                      : 'rgba(0, 0, 0, 0.04)',
-                    borderRadius: '10px',
-                    ml: 1,
-                    '&:hover': {
+              {/* Bildirimler - sadece giriş yapmış kullanıcılar için gösterilir */}
+              {user && (
+                <Tooltip title="Bildirimler">
+                  <IconButton 
+                    sx={{ 
+                      width: 36, 
+                      height: 36, 
                       backgroundColor: theme.palette.mode === 'dark' 
-                        ? 'rgba(255, 255, 255, 0.1)' 
-                        : 'rgba(0, 0, 0, 0.08)',
-                    }
-                  }}
-                >
-                  <Badge
-                    badgeContent={3}
-                    color="error"
-                    sx={{
-                      '& .MuiBadge-badge': {
-                        fontSize: '0.6rem',
-                        height: '16px',
-                        minWidth: '16px',
-                        padding: '0 4px',
+                        ? 'rgba(255, 255, 255, 0.05)' 
+                        : 'rgba(0, 0, 0, 0.04)',
+                      borderRadius: '10px',
+                      ml: 1,
+                      '&:hover': {
+                        backgroundColor: theme.palette.mode === 'dark' 
+                          ? 'rgba(255, 255, 255, 0.1)' 
+                          : 'rgba(0, 0, 0, 0.08)',
                       }
                     }}
                   >
-                    <NotificationsIcon fontSize="small" />
-                  </Badge>
-                </IconButton>
-              </Tooltip>
-              
-              {/* Kullanıcı Menüsü */}
-              <Box sx={{ ml: { xs: 1, md: 2 } }}>
-                {isLoggedIn ? (
-                  <>
-                    <Button
-                      onClick={handleMenuOpen}
-                      color="inherit"
+                    <Badge
+                      badgeContent={3}
+                      color="error"
                       sx={{
-                        borderRadius: '24px',
-                        backgroundColor: theme.palette.mode === 'dark' 
-                          ? 'rgba(255, 255, 255, 0.05)' 
-                          : 'rgba(0, 0, 0, 0.04)',
-                        padding: '4px 4px 4px 12px',
-                        '&:hover': {
-                          backgroundColor: theme.palette.mode === 'dark' 
-                            ? 'rgba(255, 255, 255, 0.1)' 
-                            : 'rgba(0, 0, 0, 0.08)',
+                        '& .MuiBadge-badge': {
+                          fontSize: '0.6rem',
+                          height: '16px',
+                          minWidth: '16px',
+                          padding: '0 4px',
                         }
                       }}
-                      endIcon={<KeyboardArrowDownIcon fontSize="small" />}
                     >
-                      <Avatar
-                        sx={{
-                          width: 28,
-                          height: 28,
-                          fontSize: '0.875rem',
-                          ml: 0.5,
-                          bgcolor: theme.palette.primary.main
-                        }}
-                      >
-                        M
-                      </Avatar>
-                    </Button>
-                    <Menu
-                      anchorEl={menuAnchorEl}
-                      open={Boolean(menuAnchorEl)}
-                      onClose={handleMenuClose}
-                      PaperProps={{
-                        elevation: 3,
-                        sx: {
-                          mt: 1.5,
-                          overflow: 'visible',
-                          filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.15))',
-                          '&:before': {
-                            content: '""',
-                            display: 'block',
-                            position: 'absolute',
-                            top: 0,
-                            right: 14,
-                            width: 10,
-                            height: 10,
-                            bgcolor: 'background.paper',
-                            transform: 'translateY(-50%) rotate(45deg)',
-                            zIndex: 0,
-                          },
-                          '& .MuiMenuItem-root': {
-                            px: 2,
-                            py: 1.5,
-                            my: 0.5,
-                            borderRadius: 1,
-                            mx: 0.5,
-                          }
-                        },
-                      }}
-                      transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-                      anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-                      disableAutoFocusItem
-                    >
-                      <Box sx={{ px: 2, py: 1.5 }}>
-                        <Typography variant="subtitle1" fontWeight="bold">Merhaba, Kullanıcı!</Typography>
-                        <Typography variant="body2" color="text.secondary">kullanici@mail.com</Typography>
-                      </Box>
-                      <Divider sx={{ my: 1 }} />
-                      <MenuItem component={Link} to="/dashboard">
-                        <ListItemIcon>
-                          <DashboardIcon fontSize="small" />
-                        </ListItemIcon>
-                        <ListItemText>Gösterge Paneli</ListItemText>
-                      </MenuItem>
-                      <MenuItem component={Link} to="/favorites">
-                        <ListItemIcon>
-                          <FavoriteIcon fontSize="small" />
-                        </ListItemIcon>
-                        <ListItemText>Favori Hisselerim</ListItemText>
-                      </MenuItem>
-                      <MenuItem component={Link} to="/settings">
-                        <ListItemIcon>
-                          <SettingsIcon fontSize="small" />
-                        </ListItemIcon>
-                        <ListItemText>Ayarlar</ListItemText>
-                      </MenuItem>
-                      <Divider sx={{ my: 1 }} />
-                      <MenuItem onClick={onLogout} sx={{ color: theme.palette.error.main }}>
-                        <ListItemIcon>
-                          <ExitToAppIcon fontSize="small" sx={{ color: theme.palette.error.main }} />
-                        </ListItemIcon>
-                        <ListItemText>Çıkış Yap</ListItemText>
-                      </MenuItem>
-                    </Menu>
-                  </>
-                ) : (
-                  <Button 
-                    variant="contained" 
-                    component={Link} 
-                    to="/login"
-                    color="primary"
-                    sx={{ 
-                      borderRadius: '24px', 
-                      px: 3,
-                      py: 0.8,
-                      fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                      boxShadow: '0 4px 12px rgba(41, 98, 255, 0.3)',
+                      <NotificationsIcon fontSize="small" />
+                    </Badge>
+                  </IconButton>
+                </Tooltip>
+              )}
+              
+              {/* Giriş yapma/Kullanıcı bilgisi butonu */}
+              <Box sx={{ ml: { xs: 1, md: 2 } }}>
+                {user ? (
+                  // Kullanıcı giriş yapmışsa avatar göster
+                  <Button
+                    onClick={handleMenuOpen}
+                    color="inherit"
+                    sx={{
+                      borderRadius: '24px',
+                      backgroundColor: theme.palette.mode === 'dark' 
+                        ? 'rgba(255, 255, 255, 0.05)' 
+                        : 'rgba(0, 0, 0, 0.04)',
+                      padding: '4px 4px 4px 12px',
                       '&:hover': {
-                        boxShadow: '0 6px 16px rgba(41, 98, 255, 0.4)',
+                        backgroundColor: theme.palette.mode === 'dark' 
+                          ? 'rgba(255, 255, 255, 0.1)' 
+                          : 'rgba(0, 0, 0, 0.08)',
                       }
+                    }}
+                    endIcon={<KeyboardArrowDownIcon fontSize="small" />}
+                  >
+                    <Avatar
+                      sx={{
+                        width: 28,
+                        height: 28,
+                        fontSize: '0.875rem',
+                        ml: 0.5,
+                        bgcolor: theme.palette.primary.main
+                      }}
+                    >
+                      {getInitials()}
+                    </Avatar>
+                  </Button>
+                ) : (
+                  // Kullanıcı giriş yapmamışsa "Giriş Yap" butonu göster
+                  <Button
+                    component={Link}
+                    to="/login"
+                    variant="contained"
+                    size="small"
+                    startIcon={<LoginIcon />}
+                    sx={{
+                      borderRadius: '8px',
+                      textTransform: 'none',
+                      py: 0.7,
+                      px: 2
                     }}
                   >
                     Giriş Yap
                   </Button>
                 )}
+                
+                {/* Kullanıcı Menüsü */}
+                <Menu
+                  anchorEl={menuAnchorEl}
+                  open={Boolean(menuAnchorEl)}
+                  onClose={handleMenuClose}
+                  PaperProps={{
+                    elevation: 3,
+                    sx: {
+                      mt: 1.5,
+                      overflow: 'visible',
+                      filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.15))',
+                      '&:before': {
+                        content: '""',
+                        display: 'block',
+                        position: 'absolute',
+                        top: 0,
+                        right: 14,
+                        width: 10,
+                        height: 10,
+                        bgcolor: 'background.paper',
+                        transform: 'translateY(-50%) rotate(45deg)',
+                        zIndex: 0,
+                      },
+                      '& .MuiMenuItem-root': {
+                        px: 2,
+                        py: 1.5,
+                        my: 0.5,
+                        borderRadius: 1,
+                        mx: 0.5,
+                      }
+                    },
+                  }}
+                  transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                  anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                  disableAutoFocusItem
+                >
+                  {userMenuContent()}
+                </Menu>
               </Box>
             </Box>
           </Toolbar>
@@ -535,14 +597,15 @@ const Header = ({ isLoggedIn, onLogout, darkMode, toggleDarkMode }) => {
           ))}
         </List>
         
-        {isLoggedIn ? (
-          <>
-            <Divider sx={{ my: 3 }} />
-            <Typography variant="subtitle2" color="text.secondary" sx={{ ml: 2, mb: 2 }}>
-              KULLANICI
-            </Typography>
+        <Divider sx={{ my: 3 }} />
+        <Typography variant="subtitle2" color="text.secondary" sx={{ ml: 2, mb: 2 }}>
+          KULLANICI
+        </Typography>
             
-            <List>
+        <List>
+          {user ? (
+            // Kullanıcı giriş yapmışsa
+            <>
               <ListItem button component={Link} to="/dashboard" onClick={toggleMobileMenu}>
                 <ListItemIcon sx={{ minWidth: 40 }}>
                   <DashboardIcon fontSize="small" />
@@ -561,37 +624,24 @@ const Header = ({ isLoggedIn, onLogout, darkMode, toggleDarkMode }) => {
                 </ListItemIcon>
                 <ListItemText primary="Ayarlar" />
               </ListItem>
-              <ListItem button onClick={() => { onLogout(); toggleMobileMenu(); }} sx={{ color: theme.palette.error.main }}>
-                <ListItemIcon sx={{ minWidth: 40, color: theme.palette.error.main }}>
+              <Divider sx={{ my: 1 }} />
+              <ListItem button onClick={() => { handleLogout(); toggleMobileMenu(); }}>
+                <ListItemIcon sx={{ minWidth: 40 }}>
                   <ExitToAppIcon fontSize="small" />
                 </ListItemIcon>
                 <ListItemText primary="Çıkış Yap" />
               </ListItem>
-            </List>
-          </>
-        ) : (
-          <Box sx={{ mt: 4, textAlign: 'center' }}>
-            <Button 
-              variant="contained" 
-              component={Link} 
-              to="/login"
-              color="primary"
-              fullWidth
-              size="large"
-              onClick={toggleMobileMenu}
-              sx={{ 
-                borderRadius: '24px', 
-                py: 1.2,
-                boxShadow: '0 4px 12px rgba(41, 98, 255, 0.3)',
-                '&:hover': {
-                  boxShadow: '0 6px 16px rgba(41, 98, 255, 0.4)',
-                }
-              }}
-            >
-              Giriş Yap
-            </Button>
-          </Box>
-        )}
+            </>
+          ) : (
+            // Kullanıcı giriş yapmamışsa
+            <ListItem button component={Link} to="/login" onClick={toggleMobileMenu}>
+              <ListItemIcon sx={{ minWidth: 40 }}>
+                <LoginIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText primary="Giriş Yap" />
+            </ListItem>
+          )}
+        </List>
       </Drawer>
     </>
   );
