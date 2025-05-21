@@ -22,7 +22,8 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Tooltip
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
@@ -34,7 +35,8 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip as ChartTooltip, Legend, Filler } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { alpha } from '@mui/material/styles';
 
@@ -47,7 +49,7 @@ ChartJS.register(
   PointElement,
   LineElement,
   Title,
-  Tooltip,
+  ChartTooltip,
   Legend,
   Filler
 );
@@ -90,6 +92,7 @@ const StockDetailPage = () => {
   const [chartData, setChartData] = useState(null);
   const [chartPeriod, setChartPeriod] = useState('1mo');
   const [loadingChart, setLoadingChart] = useState(false);
+  const [firstLoad, setFirstLoad] = useState(true);
   
   // Sayfa yüklendiğinde hisse verisini ve tahminlerini çek
   useEffect(() => {
@@ -102,28 +105,41 @@ const StockDetailPage = () => {
   
   // Hisse verilerini ve tahminleri çek
   const fetchStockData = async () => {
+    setLoading(true);
+    setError(null);
+    
     try {
-      setLoading(true);
-      setError('');
-      
-      // Hisse temel bilgilerini çek
-      const stockResponse = await apiService.getStockBySymbol(symbol);
+      // Hisse detaylarını al
+      const stockResponse = await apiService.getStockDetail(symbol);
       setStock(stockResponse.data);
       
-      // Hisse tahmin bilgilerini çek
-      const predictionResponse = await apiService.getPredictionBySymbol(symbol, refreshing);
+      // Tahmin verilerini al
+      const predictionResponse = await apiService.getStockPrediction(symbol);
       setPrediction(predictionResponse.data);
       
-      // Grafik verilerini de çek
-      fetchChartData();
+      // Teknik göstergeleri al
+      try {
+        const technicalResponse = await apiService.getTechnicalIndicators(symbol);
+        
+        // Teknik gösterge verilerini stock state'ine dahil et
+        if (technicalResponse.data) {
+          setStock(prevStock => ({
+            ...prevStock,
+            ...technicalResponse.data
+          }));
+        }
+      } catch (techError) {
+        console.error("Teknik göstergeler yüklenirken hata:", techError);
+        // Teknik göstergeler yüklenemese bile diğer veriler gösterilebilir
+      }
       
+      // İlk yükleme tamamlandı
+      setFirstLoad(false);
+    } catch (error) {
+      console.error("Hisse verisi yüklenirken hata:", error);
+      setError("Hisse verileri yüklenirken bir hata oluştu.");
+    } finally {
       setLoading(false);
-      setRefreshing(false);
-    } catch (err) {
-      setError(`Hisse verileri yüklenirken bir hata oluştu: ${err.message}`);
-      console.error('Hata:', err);
-      setLoading(false);
-      setRefreshing(false);
     }
   };
   
@@ -175,7 +191,7 @@ const StockDetailPage = () => {
     const dates = data.map(item => new Date(item.Datetime).toLocaleString());
     const prices = data.map(item => item.Close);
     
-    // Grafik verilerini ayarla
+    // Grafik verilerini ayarla - Mavi gösterge yeniden eklendi
     setChartData({
       labels: [...dates, ...predictionDates],
       datasets: [
@@ -311,9 +327,15 @@ const StockDetailPage = () => {
       flexDirection: 'column',
       width: '100%',
       overflow: 'hidden',
-      p: 0
+      p: { xs: 0, sm: 0 }
     }}>
-      <Container maxWidth="xl" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: {xs: 0.5, sm: 1}, overflow: 'hidden' }}>
+      <Container maxWidth="xl" sx={{ 
+        flexGrow: 1, 
+        display: 'flex', 
+        flexDirection: 'column', 
+        p: { xs: 0.5, sm: 1, md: 2 },
+        overflow: 'hidden' 
+      }}>
         {/* Üst Bar */}
         <Paper 
           elevation={0} 
@@ -437,13 +459,6 @@ const StockDetailPage = () => {
                   <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', mb: 2 }}>
                     {stock?.name || "BIST Hissesi"}
                   </Typography>
-                  
-                  <Chip
-                    color="primary"
-                    variant="outlined"
-                    label="BIST Hissesi"
-                    size="small"
-                  />
                 </Grid>
                 
                 {/* Fiyat ve Değişim */}
@@ -452,14 +467,14 @@ const StockDetailPage = () => {
                     Güncel Fiyat
                   </Typography>
                   <Typography variant="h3" sx={{ fontWeight: 'bold', my: 1 }}>
-                    {Number(stock?.current_price || stock?.last_price).toFixed(2)} ₺
+                    {typeof (stock?.current_price || stock?.last_price) === 'number' ? Number(stock?.current_price || stock?.last_price).toFixed(2) : "0.00"} ₺
                   </Typography>
                   
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                     <Chip
                       icon={getChangeIcon(stock?.daily_change || prediction?.lstm_change_percent)}
-                      label={`%${Math.abs((stock?.daily_change || prediction?.lstm_change_percent || 0)).toFixed(2)}`}
-                      color={stock?.daily_change || prediction?.lstm_change_percent >= 0 ? "success" : "error"}
+                      label={`%${Math.abs(Number(stock?.daily_change || prediction?.lstm_change_percent || 0)).toFixed(2)}`}
+                      color={Number(stock?.daily_change || prediction?.lstm_change_percent || 0) >= 0 ? "success" : "error"}
                       sx={{ fontWeight: 'bold' }}
                     />
                     
@@ -476,7 +491,7 @@ const StockDetailPage = () => {
                         Açılış
                       </Typography>
                       <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-                        {Number(stock?.open_price || 0).toFixed(2)} ₺
+                        {typeof stock?.open_price === 'number' ? Number(stock?.open_price).toFixed(2) : "0.00"} ₺
                       </Typography>
                     </Grid>
                     <Grid item xs={6}>
@@ -492,7 +507,7 @@ const StockDetailPage = () => {
                         Günlük En Yüksek
                       </Typography>
                       <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-                        {Number(stock?.high_price || 0).toFixed(2)} ₺
+                        {typeof stock?.high_price === 'number' ? Number(stock?.high_price).toFixed(2) : "0.00"} ₺
                       </Typography>
                     </Grid>
                     <Grid item xs={6}>
@@ -500,7 +515,7 @@ const StockDetailPage = () => {
                         Günlük En Düşük
                       </Typography>
                       <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-                        {Number(stock?.low_price || 0).toFixed(2)} ₺
+                        {typeof stock?.low_price === 'number' ? Number(stock?.low_price).toFixed(2) : "0.00"} ₺
                       </Typography>
                     </Grid>
                   </Grid>
@@ -529,9 +544,9 @@ const StockDetailPage = () => {
                           </Typography>
                           <Typography variant="h5" color={getChangeColor(prediction.lstm_change_percent)} sx={{ display: 'flex', alignItems: 'center', fontWeight: 'bold', mb: 2 }}>
                             {getChangeIcon(prediction.lstm_change_percent)}
-                            {Number(prediction.lstm_predicted_price || 0).toFixed(2)} ₺
+                            {typeof prediction?.lstm_predicted_price === 'number' ? Number(prediction?.lstm_predicted_price).toFixed(2) : "0.00"} ₺
                             <Typography variant="body2" color={getChangeColor(prediction.lstm_change_percent)} sx={{ ml: 1 }}>
-                              (%{(prediction.lstm_change_percent || 0).toFixed(2)})
+                              (%{typeof prediction?.lstm_change_percent === 'number' ? prediction?.lstm_change_percent.toFixed(2) : "0.00"})
                             </Typography>
                           </Typography>
                         </Grid>
@@ -541,7 +556,7 @@ const StockDetailPage = () => {
                             LSTM
                           </Typography>
                           <Typography variant="body2" sx={{ fontWeight: 'medium', color: getChangeColor(prediction.lstm_change_percent) }}>
-                            {Number(prediction.lstm_predicted_price || 0).toFixed(2)} ₺ (%{(prediction.lstm_change_percent || 0).toFixed(2)})
+                            {typeof prediction?.lstm_predicted_price === 'number' ? Number(prediction?.lstm_predicted_price).toFixed(2) : "0.00"} ₺ (%{typeof prediction?.lstm_change_percent === 'number' ? prediction?.lstm_change_percent.toFixed(2) : "0.00"})
                           </Typography>
                         </Grid>
                         <Grid item xs={6}>
@@ -549,7 +564,7 @@ const StockDetailPage = () => {
                             GRU
                           </Typography>
                           <Typography variant="body2" sx={{ fontWeight: 'medium', color: getChangeColor(prediction.gru_change_percent) }}>
-                            {Number(prediction.gru_predicted_price || 0).toFixed(2)} ₺ (%{(prediction.gru_change_percent || 0).toFixed(2)})
+                            {typeof prediction?.gru_predicted_price === 'number' ? Number(prediction?.gru_predicted_price).toFixed(2) : "0.00"} ₺ (%{typeof prediction?.gru_change_percent === 'number' ? prediction?.gru_change_percent.toFixed(2) : "0.00"})
                           </Typography>
                         </Grid>
                         
@@ -565,19 +580,19 @@ const StockDetailPage = () => {
                             <Box sx={{ flex: 1, mr: 1 }}>
                               <LinearProgress 
                                 variant="determinate" 
-                                value={stock?.rsi || 50} 
+                                value={typeof stock?.rsi === 'number' ? stock.rsi : 50} 
                                 sx={{ 
                                   height: 8, 
                                   borderRadius: 1,
                                   backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
                                   '& .MuiLinearProgress-bar': {
-                                    backgroundColor: getRsiProgressColor(stock?.rsi)
+                                    backgroundColor: getRsiProgressColor(typeof stock?.rsi === 'number' ? stock.rsi : 50)
                                   }
                                 }}
                               />
                             </Box>
                             <Typography variant="body2" sx={{ fontWeight: 'medium', width: 35 }}>
-                              {(stock?.rsi || 0).toFixed(0)}
+                              {typeof stock?.rsi === 'number' ? stock.rsi.toFixed(0) : '0'}
                             </Typography>
                           </Box>
                         </Grid>
@@ -586,7 +601,7 @@ const StockDetailPage = () => {
                             Bağıl Hacim
                           </Typography>
                           <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                            {(stock?.relative_volume || 0).toFixed(2)}x
+                            {typeof stock?.relative_volume === 'number' ? stock.relative_volume.toFixed(2) : '0'}x
                           </Typography>
                         </Grid>
                       </Grid>
@@ -694,7 +709,7 @@ const StockDetailPage = () => {
                                 intersect: false,
                                 callbacks: {
                                   label: function(context) {
-                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + ' ₺';
+                                    return context.dataset.label + ': ' + (typeof context.parsed.y === 'number' ? context.parsed.y.toFixed(2) : "0.00") + ' ₺';
                                   }
                                 }
                               }
@@ -766,7 +781,7 @@ const StockDetailPage = () => {
                               sx={{ mr: 1 }}
                             />
                             <Chip 
-                              label={`Doğruluk: ${(100 - (prediction.best_mse * 100)).toFixed(1)}%`} 
+                              label={`Doğruluk: ${typeof prediction?.best_mse === 'number' ? (100 - (prediction?.best_mse * 100)).toFixed(1) : "0.0"}%`} 
                               color="success" 
                               size="small" 
                             />
@@ -778,10 +793,360 @@ const StockDetailPage = () => {
                 </TabPanel>
                 
                 <TabPanel value={tabValue} index={1}>
-                  <Box sx={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                    <Typography variant="body1">
-                      İndikatörler paneli burada gelecek
-                    </Typography>
+                  <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="h6">
+                        {symbol} Teknik İndikatörleri
+                      </Typography>
+                      
+                      <Button 
+                        startIcon={<RefreshIcon />}
+                        size="small"
+                        variant="outlined"
+                        onClick={handleRefresh}
+                      >
+                        Yenile
+                      </Button>
+                    </Box>
+                    
+                    {loading ? (
+                      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+                        <CircularProgress size={30} />
+                      </Box>
+                    ) : (
+                      <Grid container spacing={3}>
+                        {/* RSI (Göreceli Güç Endeksi) Kartı */}
+                        <Grid item xs={12} md={6}>
+                          <Paper
+                            elevation={0}
+                            sx={{
+                              p: 3,
+                              borderRadius: 2,
+                              backgroundColor: theme.palette.mode === 'dark' ? 'rgba(25,25,35,0.9)' : 'white',
+                              height: '100%',
+                              border: '1px solid',
+                              borderColor: 'divider'
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                              <Typography variant="h6">RSI</Typography>
+                              <Tooltip title="Relative Strength Index (Göreceli Güç Endeksi) - Fiyat momentum göstergesi">
+                                <IconButton size="small">
+                                  <InfoOutlinedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
+                            
+                            <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold', mb: 2 }}>
+                              {typeof stock?.rsi === 'number' ? stock.rsi.toFixed(2) : 'N/A'}
+                            </Typography>
+                            
+                            <Box sx={{ mb: 1 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                <Typography variant="caption" color="error">Aşırı Satım</Typography>
+                                <Typography variant="caption">Nötr</Typography>
+                                <Typography variant="caption" color="success">Aşırı Alım</Typography>
+                              </Box>
+                              <LinearProgress
+                                variant="determinate"
+                                value={typeof stock?.rsi === 'number' ? stock.rsi : 50}
+                                sx={{
+                                  height: 8,
+                                  borderRadius: 1,
+                                  backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                                  '& .MuiLinearProgress-bar': {
+                                    backgroundColor: getRsiProgressColor(typeof stock?.rsi === 'number' ? stock.rsi : 50)
+                                  }
+                                }}
+                              />
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                                <Typography variant="caption">0</Typography>
+                                <Typography variant="caption">30</Typography>
+                                <Typography variant="caption">70</Typography>
+                                <Typography variant="caption">100</Typography>
+                              </Box>
+                            </Box>
+                            
+                            <Chip
+                              label={`Sinyal: ${typeof stock?.rsi === 'number' ? (stock.rsi < 30 ? 'Aşırı Satım' : stock.rsi > 70 ? 'Aşırı Alım' : 'Nötr') : 'Nötr'}`}
+                              color={typeof stock?.rsi === 'number' ? (stock.rsi < 30 ? 'success' : stock.rsi > 70 ? 'error' : 'default') : 'default'}
+                              size="small"
+                              sx={{ mt: 1 }}
+                            />
+                          </Paper>
+                        </Grid>
+                        
+                        {/* MACD (Hareketli Ortalama Yakınsama/Iraksama) Kartı */}
+                        <Grid item xs={12} md={6}>
+                          <Paper
+                            elevation={0}
+                            sx={{
+                              p: 3,
+                              borderRadius: 2,
+                              backgroundColor: theme.palette.mode === 'dark' ? 'rgba(25,25,35,0.9)' : 'white',
+                              height: '100%',
+                              border: '1px solid',
+                              borderColor: 'divider'
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                              <Typography variant="h6">MACD</Typography>
+                              <Tooltip title="Moving Average Convergence Divergence (Hareketli Ortalama Yakınsama/Iraksama) - Trend ve momentum göstergesi">
+                                <IconButton size="small">
+                                  <InfoOutlinedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
+                            
+                            <Grid container spacing={2}>
+                              <Grid item xs={6}>
+                                <Typography variant="caption" color="text.secondary">MACD Değeri</Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                                  {typeof stock?.macd?.value === 'number' ? stock.macd.value.toFixed(2) : 'N/A'}
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Typography variant="caption" color="text.secondary">Sinyal Çizgisi</Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                                  {typeof stock?.macd?.signal === 'number' ? stock.macd.signal.toFixed(2) : 'N/A'}
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={12}>
+                                <Typography variant="caption" color="text.secondary">Histogram</Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                                  {typeof stock?.macd?.histogram === 'number' ? stock.macd.histogram.toFixed(2) : 'N/A'}
+                                </Typography>
+                              </Grid>
+                            </Grid>
+                            
+                            <Divider sx={{ my: 2 }} />
+                            
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              <Chip
+                                label={`Trend: ${typeof stock?.macd?.trend === 'string' ? stock.macd.trend : 'Nötr'}`}
+                                color={typeof stock?.macd?.trend === 'string' ? (stock.macd.trend === 'Yükseliş' ? 'success' : stock.macd.trend === 'Düşüş' ? 'error' : 'default') : 'default'}
+                                size="small"
+                              />
+                            </Box>
+                          </Paper>
+                        </Grid>
+                        
+                        {/* Bollinger Bantları Kartı */}
+                        <Grid item xs={12} md={6}>
+                          <Paper
+                            elevation={0}
+                            sx={{
+                              p: 3,
+                              borderRadius: 2,
+                              backgroundColor: theme.palette.mode === 'dark' ? 'rgba(25,25,35,0.9)' : 'white',
+                              height: '100%',
+                              border: '1px solid',
+                              borderColor: 'divider'
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                              <Typography variant="h6">Bollinger Bantları</Typography>
+                              <Tooltip title="Bollinger Bantları - Fiyat volatilitesi için kullanılan bir gösterge">
+                                <IconButton size="small">
+                                  <InfoOutlinedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
+                            
+                            <Grid container spacing={2}>
+                              <Grid item xs={4}>
+                                <Typography variant="caption" color="text.secondary">Üst Bant</Typography>
+                                <Typography variant="body1" color="success.main" sx={{ fontWeight: 'medium' }}>
+                                  {typeof stock?.bollinger_bands?.upper === 'number' ? stock.bollinger_bands.upper.toFixed(2) : 'N/A'} ₺
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={4}>
+                                <Typography variant="caption" color="text.secondary">Orta Bant</Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                                  {typeof stock?.bollinger_bands?.middle === 'number' ? stock.bollinger_bands.middle.toFixed(2) : 'N/A'} ₺
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={4}>
+                                <Typography variant="caption" color="text.secondary">Alt Bant</Typography>
+                                <Typography variant="body1" color="error.main" sx={{ fontWeight: 'medium' }}>
+                                  {typeof stock?.bollinger_bands?.lower === 'number' ? stock.bollinger_bands.lower.toFixed(2) : 'N/A'} ₺
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={12}>
+                                <Typography variant="caption" color="text.secondary">Bant Genişliği</Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                                  {typeof stock?.bollinger_bands?.width === 'number' ? stock.bollinger_bands.width.toFixed(2) : 'N/A'}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                                  Yüksek değer = Yüksek volatilite
+                                </Typography>
+                              </Grid>
+                            </Grid>
+                          </Paper>
+                        </Grid>
+                        
+                        {/* Hareketli Ortalamalar Kartı */}
+                        <Grid item xs={12} md={6}>
+                          <Paper
+                            elevation={0}
+                            sx={{
+                              p: 3,
+                              borderRadius: 2,
+                              backgroundColor: theme.palette.mode === 'dark' ? 'rgba(25,25,35,0.9)' : 'white',
+                              height: '100%',
+                              border: '1px solid',
+                              borderColor: 'divider'
+                            }}
+                          >
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                              <Typography variant="h6">Hareketli Ortalamalar</Typography>
+                              <Tooltip title="Hareketli Ortalamalar - Farklı periyotlarda fiyat ortalamaları">
+                                <IconButton size="small">
+                                  <InfoOutlinedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
+                            
+                            <Grid container spacing={2}>
+                              <Grid item xs={6}>
+                                <Typography variant="caption" color="text.secondary">SMA (20)</Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                                  {typeof stock?.moving_averages?.sma_20 === 'number' ? stock.moving_averages.sma_20.toFixed(2) : 'N/A'} ₺
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Typography variant="caption" color="text.secondary">SMA (50)</Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                                  {typeof stock?.moving_averages?.sma_50 === 'number' ? stock.moving_averages.sma_50.toFixed(2) : 'N/A'} ₺
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Typography variant="caption" color="text.secondary">SMA (200)</Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                                  {typeof stock?.moving_averages?.sma_200 === 'number' ? stock.moving_averages.sma_200.toFixed(2) : 'N/A'} ₺
+                                </Typography>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Typography variant="caption" color="text.secondary">EMA (9)</Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                                  {typeof stock?.moving_averages?.ema_9 === 'number' ? stock.moving_averages.ema_9.toFixed(2) : 'N/A'} ₺
+                                </Typography>
+                              </Grid>
+                            </Grid>
+                            
+                            <Divider sx={{ my: 2 }} />
+                            
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              <Chip
+                                label={`Sinyal: ${typeof stock?.moving_averages?.signal === 'string' ? stock.moving_averages.signal : 'Nötr'}`}
+                                color={typeof stock?.moving_averages?.signal === 'string' ? (stock.moving_averages.signal === 'Yükseliş' ? 'success' : stock.moving_averages.signal === 'Düşüş' ? 'error' : 'default') : 'default'}
+                                size="small"
+                              />
+                            </Box>
+                          </Paper>
+                        </Grid>
+                        
+                        {/* Diğer İndikatörler Kartı */}
+                        <Grid item xs={12}>
+                          <Paper
+                            elevation={0}
+                            sx={{
+                              p: 3,
+                              borderRadius: 2,
+                              backgroundColor: theme.palette.mode === 'dark' ? 'rgba(25,25,35,0.9)' : 'white',
+                              border: '1px solid',
+                              borderColor: 'divider'
+                            }}
+                          >
+                            <Typography variant="h6" sx={{ mb: 2 }}>Diğer İndikatörler</Typography>
+                            
+                            <Grid container spacing={3}>
+                              <Grid item xs={12} sm={6} md={3}>
+                                <Box>
+                                  <Typography variant="subtitle2">Stokastik Osilatör</Typography>
+                                  <Box sx={{ display: 'flex', mt: 1 }}>
+                                    <Box sx={{ mr: 3 }}>
+                                      <Typography variant="caption" color="text.secondary">K Değeri</Typography>
+                                      <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                                        {typeof stock?.stochastic?.k === 'number' ? stock.stochastic.k.toFixed(2) : 'N/A'}
+                                      </Typography>
+                                    </Box>
+                                    <Box>
+                                      <Typography variant="caption" color="text.secondary">D Değeri</Typography>
+                                      <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                                        {typeof stock?.stochastic?.d === 'number' ? stock.stochastic.d.toFixed(2) : 'N/A'}
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+                                  <Chip
+                                    label={typeof stock?.stochastic?.signal === 'string' ? stock.stochastic.signal : 'Nötr'}
+                                    size="small"
+                                    color={typeof stock?.stochastic?.signal === 'string' ? (stock.stochastic.signal === 'Aşırı Alım' ? 'error' : stock.stochastic.signal === 'Aşırı Satım' ? 'success' : 'default') : 'default'}
+                                    sx={{ mt: 1 }}
+                                  />
+                                </Box>
+                              </Grid>
+                              
+                              <Grid item xs={12} sm={6} md={3}>
+                                <Box>
+                                  <Typography variant="subtitle2">ATR</Typography>
+                                  <Typography variant="caption" color="text.secondary" display="block">
+                                    Ortalama Gerçek Aralık
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ fontWeight: 'medium', mt: 1 }}>
+                                    {typeof stock?.atr?.value === 'number' ? stock.atr.value.toFixed(2) : 'N/A'}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                                    Fiyat volatilitesini gösterir
+                                  </Typography>
+                                </Box>
+                              </Grid>
+                              
+                              <Grid item xs={12} sm={6} md={3}>
+                                <Box>
+                                  <Typography variant="subtitle2">CCI</Typography>
+                                  <Typography variant="caption" color="text.secondary" display="block">
+                                    Emtia Kanal Endeksi
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ fontWeight: 'medium', mt: 1 }}>
+                                    {typeof stock?.cci?.value === 'number' ? stock.cci.value.toFixed(2) : 'N/A'}
+                                  </Typography>
+                                  <Chip
+                                    label={typeof stock?.cci?.signal === 'string' ? stock.cci.signal : 'Nötr'}
+                                    size="small"
+                                    color={typeof stock?.cci?.signal === 'string' ? (stock.cci.signal === 'Aşırı Alım' ? 'error' : stock.cci.signal === 'Aşırı Satım' ? 'success' : 'default') : 'default'}
+                                    sx={{ mt: 1 }}
+                                  />
+                                </Box>
+                              </Grid>
+                              
+                              <Grid item xs={12} sm={6} md={3}>
+                                <Box>
+                                  <Typography variant="subtitle2">ADX</Typography>
+                                  <Typography variant="caption" color="text.secondary" display="block">
+                                    Ortalama Yön Endeksi
+                                  </Typography>
+                                  <Box sx={{ display: 'flex', mt: 1 }}>
+                                    <Box sx={{ mr: 3 }}>
+                                      <Typography variant="caption" color="text.secondary">ADX</Typography>
+                                      <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                                        {typeof stock?.adx?.value === 'number' ? stock.adx.value.toFixed(2) : 'N/A'}
+                                      </Typography>
+                                    </Box>
+                                    <Box>
+                                      <Typography variant="caption" color="text.secondary">Güç</Typography>
+                                      <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                                        {typeof stock?.adx?.trend_strength === 'number' ? stock.adx.trend_strength.toFixed(2) : 'N/A'}
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+                                </Box>
+                              </Grid>
+                            </Grid>
+                          </Paper>
+                        </Grid>
+                      </Grid>
+                    )}
                   </Box>
                 </TabPanel>
                 
@@ -832,7 +1197,7 @@ const StockDetailPage = () => {
                                   Tahmini Fiyat
                                 </Typography>
                                 <Typography variant="h4" sx={{ fontWeight: 'bold', color: getChangeColor(prediction.lstm_change_percent) }}>
-                                  {Number(prediction.lstm_predicted_price || 0).toFixed(2)} ₺
+                                  {typeof prediction?.lstm_predicted_price === 'number' ? Number(prediction?.lstm_predicted_price).toFixed(2) : "0.00"} ₺
                                 </Typography>
                                 <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
                                   {getChangeIcon(prediction.lstm_change_percent)}
@@ -840,7 +1205,7 @@ const StockDetailPage = () => {
                                     variant="body2"
                                     sx={{ color: getChangeColor(prediction.lstm_change_percent), fontWeight: 'medium' }}
                                   >
-                                    %{Math.abs(prediction.lstm_change_percent || 0).toFixed(2)}
+                                    %{typeof prediction?.lstm_change_percent === 'number' ? prediction?.lstm_change_percent.toFixed(2) : "0.00"}
                                     {prediction.lstm_change_percent >= 0 ? ' artış' : ' düşüş'}
                                   </Typography>
                                 </Box>
@@ -858,7 +1223,7 @@ const StockDetailPage = () => {
                                     MSE
                                   </Typography>
                                   <Typography variant="body2">
-                                    {prediction.lstm_mse?.toFixed(6) || 'N/A'}
+                                    {typeof prediction?.lstm_mse === 'number' ? prediction.lstm_mse.toFixed(6) : 'N/A'}
                                   </Typography>
                                 </Grid>
                                 <Grid item xs={6}>
@@ -866,7 +1231,7 @@ const StockDetailPage = () => {
                                     MAE
                                   </Typography>
                                   <Typography variant="body2">
-                                    {prediction.lstm_mae?.toFixed(6) || 'N/A'}
+                                    {typeof prediction?.lstm_mae === 'number' ? prediction.lstm_mae.toFixed(6) : 'N/A'}
                                   </Typography>
                                 </Grid>
                               </Grid>
@@ -904,7 +1269,7 @@ const StockDetailPage = () => {
                                   Tahmini Fiyat
                                 </Typography>
                                 <Typography variant="h4" sx={{ fontWeight: 'bold', color: getChangeColor(prediction.gru_change_percent) }}>
-                                  {Number(prediction.gru_predicted_price || 0).toFixed(2)} ₺
+                                  {typeof prediction?.gru_predicted_price === 'number' ? Number(prediction?.gru_predicted_price).toFixed(2) : "0.00"} ₺
                                 </Typography>
                                 <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
                                   {getChangeIcon(prediction.gru_change_percent)}
@@ -912,7 +1277,7 @@ const StockDetailPage = () => {
                                     variant="body2"
                                     sx={{ color: getChangeColor(prediction.gru_change_percent), fontWeight: 'medium' }}
                                   >
-                                    %{Math.abs(prediction.gru_change_percent || 0).toFixed(2)}
+                                    %{typeof prediction?.gru_change_percent === 'number' ? prediction?.gru_change_percent.toFixed(2) : "0.00"}
                                     {prediction.gru_change_percent >= 0 ? ' artış' : ' düşüş'}
                                   </Typography>
                                 </Box>
@@ -930,7 +1295,7 @@ const StockDetailPage = () => {
                                     MSE
                                   </Typography>
                                   <Typography variant="body2">
-                                    {prediction.gru_mse?.toFixed(6) || 'N/A'}
+                                    {typeof prediction?.gru_mse === 'number' ? prediction.gru_mse.toFixed(6) : 'N/A'}
                                   </Typography>
                                 </Grid>
                                 <Grid item xs={6}>
@@ -938,7 +1303,7 @@ const StockDetailPage = () => {
                                     MAE
                                   </Typography>
                                   <Typography variant="body2">
-                                    {prediction.gru_mae?.toFixed(6) || 'N/A'}
+                                    {typeof prediction?.gru_mae === 'number' ? prediction.gru_mae.toFixed(6) : 'N/A'}
                                   </Typography>
                                 </Grid>
                               </Grid>
@@ -976,7 +1341,7 @@ const StockDetailPage = () => {
                                   Tahmini Fiyat
                                 </Typography>
                                 <Typography variant="h4" sx={{ fontWeight: 'bold', color: getChangeColor(prediction.attention_change_percent) }}>
-                                  {Number(prediction.attention_predicted_price || 0).toFixed(2)} ₺
+                                  {typeof prediction?.attention_predicted_price === 'number' ? Number(prediction?.attention_predicted_price).toFixed(2) : "0.00"} ₺
                                 </Typography>
                                 <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
                                   {getChangeIcon(prediction.attention_change_percent)}
@@ -984,7 +1349,7 @@ const StockDetailPage = () => {
                                     variant="body2"
                                     sx={{ color: getChangeColor(prediction.attention_change_percent), fontWeight: 'medium' }}
                                   >
-                                    %{Math.abs(prediction.attention_change_percent || 0).toFixed(2)}
+                                    %{typeof prediction?.attention_change_percent === 'number' ? prediction?.attention_change_percent.toFixed(2) : "0.00"}
                                     {prediction.attention_change_percent >= 0 ? ' artış' : ' düşüş'}
                                   </Typography>
                                 </Box>
@@ -1002,7 +1367,7 @@ const StockDetailPage = () => {
                                     MSE
                                   </Typography>
                                   <Typography variant="body2">
-                                    {prediction.attention_mse?.toFixed(6) || 'N/A'}
+                                    {typeof prediction?.attention_mse === 'number' ? prediction.attention_mse.toFixed(6) : 'N/A'}
                                   </Typography>
                                 </Grid>
                                 <Grid item xs={6}>
@@ -1010,7 +1375,7 @@ const StockDetailPage = () => {
                                     MAE
                                   </Typography>
                                   <Typography variant="body2">
-                                    {prediction.attention_mae?.toFixed(6) || 'N/A'}
+                                    {typeof prediction?.attention_mae === 'number' ? prediction.attention_mae.toFixed(6) : 'N/A'}
                                   </Typography>
                                 </Grid>
                               </Grid>

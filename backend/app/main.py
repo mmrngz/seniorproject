@@ -8,6 +8,7 @@ from app.api.routes import auth
 from app.api.routes import dashboard
 from app.db.session import engine, Base
 from app.services.scheduler_service import SchedulerService
+from app.core.config import settings
 
 # Günlük ayarları
 logging.basicConfig(
@@ -27,15 +28,15 @@ def create_tables():
 
 # FastAPI uygulaması
 app = FastAPI(
-    title="BIST Hisse Analiz API",
-    description="BIST hisse senetleri için filtreleme ve yapay zeka tahminleri sağlayan API",
-    version="1.0.0",
+    title=settings.PROJECT_NAME,
+    description="Borsa Tahmin ve Analiz Uygulaması API",
+    version="1.0.0"
 )
 
-# CORS ayarları - tüm originlere izin ver
+# CORS ayarları - frontend'den gelen isteklere izin ver
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000", "http://localhost"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -83,9 +84,7 @@ async def shutdown_event():
 # Kök endpoint
 @app.get("/", tags=["root"])
 async def root():
-    return {
-        "message": "BIST Hisse Analiz API'ye Hoş Geldiniz! Dokümantasyon için /docs adresini ziyaret edin."
-    }
+    return {"message": "Borsa Tahmin ve Analiz Uygulaması API'sine Hoş Geldiniz!"}
 
 # Not: Aşağıdaki router'lar yorum satırına alınmış, ihtiyaç duyulursa aktif hale getirilebilir
 # from app.api import stocks, predictions, analysis

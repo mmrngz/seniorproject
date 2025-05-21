@@ -15,14 +15,17 @@ import { Link, useNavigate } from 'react-router-dom';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 
+// Kullanıcı servisi import
+import userService from '../services/userService';
+
 const RegisterPage = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     confirmPassword: '',
-    firstName: '',
-    lastName: ''
+    first_name: '',
+    last_name: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -53,22 +56,23 @@ const RegisterPage = () => {
     }
 
     try {
-      // Demo uygulaması olduğu için direkt giriş sayfasına yönlendiriyoruz
-      setTimeout(() => {
-        // Başarılı kayıt mesajı gösterilip login sayfasına yönlendirilebilir
-        navigate('/login', { 
-          state: { 
-            message: 'Kayıt işleminiz başarıyla tamamlandı. Lütfen giriş yapın.' 
-          } 
-        });
-      }, 1500);
+      // Kullanıcı kaydı
+      await userService.register({
+        email: formData.email,
+        password: formData.password,
+        first_name: formData.first_name,
+        last_name: formData.last_name
+      });
+      
+      // Başarılı kayıt mesajı gösterilip login sayfasına yönlendiriliyor
+      navigate('/login', { 
+        state: { 
+          message: 'Kayıt işleminiz başarıyla tamamlandı. Lütfen giriş yapın.' 
+        } 
+      });
     } catch (err) {
       setError(err.message || 'Kayıt olurken bir hata oluştu.');
-    } finally {
-      // setTimeout burada yalnızca demo amaçlı olarak kullanılıyor
-      // setTimeout(() => {
-      //   setLoading(false);
-      // }, 1500);
+      setLoading(false);
     }
   };
 
@@ -133,13 +137,13 @@ const RegisterPage = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   autoComplete="given-name"
-                  name="firstName"
+                  name="first_name"
                   required
                   fullWidth
-                  id="firstName"
+                  id="first_name"
                   label="Ad"
                   autoFocus
-                  value={formData.firstName}
+                  value={formData.first_name}
                   onChange={handleChange}
                 />
               </Grid>
@@ -147,11 +151,11 @@ const RegisterPage = () => {
                 <TextField
                   required
                   fullWidth
-                  id="lastName"
+                  id="last_name"
                   label="Soyad"
-                  name="lastName"
+                  name="last_name"
                   autoComplete="family-name"
-                  value={formData.lastName}
+                  value={formData.last_name}
                   onChange={handleChange}
                 />
               </Grid>

@@ -176,13 +176,23 @@ const PotentialRisersPage = () => {
                   icon={<WatchLaterIcon />} 
                   label={`Son güncelleme: ${lastUpdated ? lastUpdated.toLocaleString('tr-TR') : 'Bilinmiyor'}`}
                   variant="outlined"
-                  color="primary"
+                  color="success"
                   sx={{ 
                     borderRadius: 2,
-                    px: 1,
-                    height: 36,
+                    px: 2,
+                    py: 1,
+                    height: 'auto',
+                    minWidth: '200px',
+                    minHeight: 36,
                     borderWidth: 1.5,
-                    '& .MuiChip-icon': { color: theme.palette.primary.main }
+                    display: 'inline-flex',
+                    '& .MuiChip-icon': { color: theme.palette.success.main },
+                    '& .MuiChip-label': { 
+                      whiteSpace: 'normal',
+                      overflow: 'visible',
+                      display: 'block',
+                      fontSize: '0.85rem'
+                    }
                   }}
                 />
               </Box>

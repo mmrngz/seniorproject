@@ -15,6 +15,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 
+// Kullanıcı servisi import
+import userService from '../services/userService';
+
 const LoginPage = ({ onLogin = () => {} }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -34,25 +37,13 @@ const LoginPage = ({ onLogin = () => {} }) => {
     setError('');
 
     try {
-      // Normalde bir API çağrısı yapardık, ancak demo için basit bir doğrulama
-      if (formData.email === 'demo@example.com' && formData.password === 'demo123') {
-        // Kullanıcı bilgisini localStorage'a kaydet
-        const user = {
-          id: 1,
-          email: formData.email,
-          username: 'demo',
-          display_name: 'Demo Kullanıcı'
-        };
-        localStorage.setItem('user', JSON.stringify(user));
-        
-        // Giriş başarılı
-        onLogin(user);
-        
-        // Dashboard'a yönlendir
-        navigate('/dashboard');
-      } else {
-        setError('Geçersiz e-posta veya şifre. Demo giriş bilgilerini kullanın: demo@example.com / demo123');
-      }
+      const response = await userService.login(formData.email, formData.password);
+      
+      // Giriş başarılı
+      onLogin(response.user);
+      
+      // Dashboard'a yönlendir
+      navigate('/dashboard');
     } catch (err) {
       setError(err.message || 'Giriş yapılırken bir hata oluştu.');
     } finally {

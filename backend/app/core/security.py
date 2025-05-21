@@ -13,16 +13,16 @@ SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-for-jwt-tokens-keep-it-sec
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 1 hafta
 
-# Şifre şifreleme için context oluştur
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Şifre hashleme için CryptContext'i kaldırıyorum
+# pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Şifreyi doğrula"""
-    return pwd_context.verify(plain_password, hashed_password)
+def verify_password(plain_password: str, stored_password: str) -> bool:
+    # Düz metin karşılaştırması yapacak şekilde değiştiriyorum
+    return plain_password == stored_password
 
 def get_password_hash(password: str) -> str:
-    """Şifreyi hashle"""
-    return pwd_context.hash(password)
+    # Şifre hash'leme işlemini kaldırıyorum, düz metin döndürüyorum
+    return password
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """Yeni bir JWT token oluştur"""

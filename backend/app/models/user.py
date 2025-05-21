@@ -9,5 +9,5 @@ class User(Base):
     email = Column(String, unique=True, nullable=False)
     username = Column(String, unique=True, nullable=False)
     display_name = Column(String)
-    hashed_password = Column(String, nullable=False)
+    password = Column(String, nullable=False)
     created_at = Column(DateTime, default=func.now()) 

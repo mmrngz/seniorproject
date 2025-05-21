@@ -1,11 +1,14 @@
-import api from './api';
+import axios from 'axios';
+
+// API için temel URL
+const API_URL = 'http://localhost:8000/api';
 
 // Dashboard için API çağrıları
 const dashboardService = {
   // Favori hisseler
   getFavorites: async () => {
     try {
-      const response = await api.get('/dashboard/favorites');
+      const response = await axios.get(`${API_URL}/dashboard/favorites`);
       return response.data;
     } catch (error) {
       console.error('Favoriler alınırken hata oluştu:', error);
@@ -15,7 +18,7 @@ const dashboardService = {
 
   addFavorite: async (symbol) => {
     try {
-      const response = await api.post('/dashboard/favorites', { symbol });
+      const response = await axios.post(`${API_URL}/dashboard/favorites`, { symbol });
       return response.data;
     } catch (error) {
       console.error('Favori eklenirken hata oluştu:', error);
@@ -25,7 +28,7 @@ const dashboardService = {
 
   removeFavorite: async (symbol) => {
     try {
-      const response = await api.delete(`/dashboard/favorites/${symbol}`);
+      const response = await axios.delete(`${API_URL}/dashboard/favorites/${symbol}`);
       return response.data;
     } catch (error) {
       console.error('Favori silinirken hata oluştu:', error);
@@ -36,7 +39,7 @@ const dashboardService = {
   // Son tahminler
   getLatestPredictions: async (limit = 5) => {
     try {
-      const response = await api.get('/dashboard/latest-predictions', { params: { limit } });
+      const response = await axios.get(`${API_URL}/dashboard/latest-predictions`, { params: { limit } });
       return response.data;
     } catch (error) {
       console.error('Son tahminler alınırken hata oluştu:', error);
@@ -47,7 +50,7 @@ const dashboardService = {
   // Tahmin geçmişi
   getPredictionHistory: async (limit = 10) => {
     try {
-      const response = await api.get('/dashboard/prediction-history', { params: { limit } });
+      const response = await axios.get(`${API_URL}/dashboard/prediction-history`, { params: { limit } });
       return response.data;
     } catch (error) {
       console.error('Tahmin geçmişi alınırken hata oluştu:', error);
@@ -55,10 +58,21 @@ const dashboardService = {
     }
   },
 
+  // Gerçek veritabanı tahmin geçmişi
+  getRealPredictionHistory: async (limit = 20) => {
+    try {
+      const response = await axios.get(`${API_URL}/dashboard/real-prediction-history`, { params: { limit } });
+      return response.data;
+    } catch (error) {
+      console.error('Gerçek tahmin geçmişi alınırken hata oluştu:', error);
+      return [];
+    }
+  },
+
   // Model karşılaştırması
   getModelComparison: async () => {
     try {
-      const response = await api.get('/dashboard/model-comparison');
+      const response = await axios.get(`${API_URL}/dashboard/model-comparison`);
       return response.data;
     } catch (error) {
       console.error('Model karşılaştırması alınırken hata oluştu:', error);

@@ -16,6 +16,11 @@ import DashboardPage from './pages/DashboardPage';
 import StockDetailPage from './pages/StockDetailPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import PredictionHistoryPage from './pages/PredictionHistoryPage';
+import ModelComparisonPage from './pages/ModelComparisonPage';
+
+// Servisler
+import userService from './services/userService';
 
 // Varsayılan olarak koyu tema kullan
 const prefersDarkMode = true;
@@ -27,14 +32,9 @@ const App = () => {
   
   // LocalStorage'dan kullanıcı bilgilerini yükle
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error('Kullanıcı verisi çözümlenemedi:', error);
-        localStorage.removeItem('user');
-      }
+    const currentUser = userService.getCurrentUser();
+    if (currentUser) {
+      setUser(currentUser);
     }
   }, []);
   
@@ -46,7 +46,7 @@ const App = () => {
   
   // Çıkış işlemi
   const handleLogout = () => {
-    localStorage.removeItem('user');
+    userService.logout();
     setUser(null);
     showNotification('Çıkış yapıldı', 'info');
   };
@@ -430,6 +430,16 @@ const App = () => {
             } />
             <Route path="/settings" element={
               user ? <Navigate to="/dashboard" /> : <Navigate to="/login" />
+            } />
+            
+            {/* Tahmin Geçmişi Sayfası */}
+            <Route path="/prediction-history" element={
+              user ? <PredictionHistoryPage /> : <Navigate to="/login" />
+            } />
+            
+            {/* Model Karşılaştırma Sayfası */}
+            <Route path="/model-comparison" element={
+              user ? <ModelComparisonPage /> : <Navigate to="/login" />
             } />
             
             {/* Bulunamayan sayfalar için ana sayfaya yönlendir */}

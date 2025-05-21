@@ -133,7 +133,15 @@ const DashboardPage = () => {
 
   // Tab değişimi
   const handleTabChange = (event, newValue) => {
-    setValue(newValue);
+    if (newValue === 0) {
+      // Tahmin Geçmişi sayfasına yönlendir
+      navigate('/prediction-history');
+    } else if (newValue === 1) {
+      // Model Karşılaştırma sayfasına yönlendir
+      navigate('/model-comparison');
+    } else {
+      setValue(newValue);
+    }
   };
 
   return (

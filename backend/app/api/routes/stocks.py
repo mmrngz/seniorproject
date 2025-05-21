@@ -132,21 +132,50 @@ def get_filtered_predictions(
         symbols = [stock.symbol for stock in selected_stocks]
         logger.info(f"Filtreleme kriterlerini geçen {len(symbols)} hisse için tahminler getiriliyor")
         
+        # run_predictions=True ise, tüm tahminleri yeniden hesapla
         if run_predictions:
             # Tahminleri yeniden hesapla
             logger.info(f"Filtrelenen {len(symbols)} hisse için tahminler yeniden hesaplanıyor...")
             predictions = prediction_service.predict_with_hourly_data(db, symbols)
             logger.info(f"Toplam {len(predictions)} hisse için tahminler hesaplandı")
             return predictions
+        # run_predictions=False ise (varsayılan), mevcut tahminleri getir ve eksikleri hesapla
         else:
             # Mevcut tahminleri getir
             predictions = []
-            for symbol in symbols:
+            symbols_requiring_prediction = []
+            stocks_requiring_prediction = {}
+
+            # Önce mevcut tahminleri kontrol et
+            for stock in selected_stocks:
+                symbol = stock.symbol
                 prediction = prediction_service.get_prediction_by_symbol(db, symbol)
                 if prediction:
                     predictions.append(prediction)
+                else:
+                    # Tahmin yoksa, tahmin yapılacak semboller listesine ekle
+                    symbols_requiring_prediction.append(symbol)
+                    stocks_requiring_prediction[symbol] = stock
             
-            logger.info(f"Toplam {len(predictions)}/{len(symbols)} hisse için tahminler bulundu")
+            # Eğer tahmin yapılması gereken hisseler varsa
+            if symbols_requiring_prediction:
+                logger.info(f"{len(symbols_requiring_prediction)} hisse için veritabanında tahmin bulunamadı, tahminler hesaplanıyor...")
+                
+                # Her bir hisse için tahmin yap
+                for symbol in symbols_requiring_prediction:
+                    stock = stocks_requiring_prediction[symbol]
+                    try:
+                        # Hisse için tahmin yap
+                        new_prediction = prediction_service.predict_stock(db, stock, "all")
+                        if new_prediction:
+                            predictions.append(new_prediction)
+                            logger.info(f"{symbol} için tahmin başarıyla yapıldı.")
+                        else:
+                            logger.warning(f"{symbol} için tahmin yapılamadı.")
+                    except Exception as e:
+                        logger.error(f"{symbol} için tahmin yapılırken hata: {str(e)}")
+            
+            logger.info(f"Toplam {len(predictions)}/{len(symbols)} hisse için tahminler bulundu/yapıldı")
             return predictions
     except Exception as e:
         logger.error(f"Filtrelenmiş tahminleri alma hatası: {str(e)}")

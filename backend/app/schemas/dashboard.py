@@ -1,10 +1,10 @@
-from pydantic import BaseModel
-from typing import Optional, List
+from pydantic import BaseModel, Field
+from typing import List, Optional
 from datetime import datetime
 
-# Favori Hisse Şemaları
+# Kullanıcı favorileri için şemalar
 class UserFavoriteBase(BaseModel):
-    symbol: str
+    symbol: str = Field(..., description="Hisse senedi sembolü")
 
 class UserFavoriteCreate(UserFavoriteBase):
     pass
@@ -12,49 +12,41 @@ class UserFavoriteCreate(UserFavoriteBase):
 class UserFavorite(UserFavoriteBase):
     id: int
     user_id: int
-    created_at: datetime
-    
+    name: str
+    current_price: float
+    change_percent: float
+
     class Config:
-        from_attributes = True
+        orm_mode = True
 
-# Tahmin Geçmişi Şemaları
-class PredictionHistoryBase(BaseModel):
-    symbol: str
-    prediction_date: datetime
-    prediction_price: float
-    model_used: str
-
-class PredictionHistoryCreate(PredictionHistoryBase):
-    pass
-
-class PredictionHistoryUpdate(BaseModel):
-    actual_price: Optional[float] = None
-    is_successful: Optional[bool] = None
-    accuracy_percent: Optional[float] = None
-
-class PredictionHistory(PredictionHistoryBase):
+# Tahmin geçmişi için şemalar
+class DashboardPrediction(BaseModel):
     id: int
-    actual_price: Optional[float] = None
-    is_successful: Optional[bool] = None
-    accuracy_percent: Optional[float] = None
-    created_at: datetime
-    
-    class Config:
-        from_attributes = True
+    symbol: str
+    prediction_date: str
+    predicted_price: float
+    actual_price: float
+    accuracy: float
+    model: str
 
-# Dashboard İçin API Yanıt Şemaları
+    class Config:
+        orm_mode = True
+
+# Model karşılaştırma için şema
+class ModelComparisonItem(BaseModel):
+    model_name: str
+    accuracy: float
+    precision: float
+    recall: float
+    f1_score: float
+    training_time: int
+
+class ModelComparison(BaseModel):
+    models: List[ModelComparisonItem]
+
+# Dashboard API yanıtları için şemalar
 class DashboardFavorites(BaseModel):
     favorites: List[UserFavorite]
 
 class DashboardPredictions(BaseModel):
-    predictions: List[PredictionHistory]
-
-class ModelComparisonItem(BaseModel):
-    model_name: str
-    accuracy: float
-    mse: float
-    mae: float
-    success_rate: float
-
-class ModelComparison(BaseModel):
-    models: List[ModelComparisonItem] 
+    predictions: List[DashboardPrediction] 

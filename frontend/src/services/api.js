@@ -39,16 +39,21 @@ const apiService = {
   getAllSymbols: () => api.get('/stocks/symbols'),
   getFilteredSymbols: (refresh = false) => api.get('/stocks/filtered-symbols', { params: { refresh } }),
   getStockBySymbol: (symbol) => api.get(`/stocks/${symbol}`),
+  getStockDetail: (symbol) => api.get(`/stocks/${symbol}`),
   
   // Filtreler ve Tahminler
   getFilteredStocks: (params) => api.get('/stocks/filtered', { params }),
   getFilteredPredictions: (runPredictions = false) => api.get('/stocks/filtered-predictions', { params: { run_predictions: runPredictions } }),
   getPredictionBySymbol: (symbol, refresh = false, modelType = 'all') => api.get(`/stocks/prediction/${symbol}`, { params: { refresh, model_type: modelType } }),
+  getStockPrediction: (symbol, refresh = false, modelType = 'all') => api.get(`/stocks/prediction/${symbol}`, { params: { refresh, model_type: modelType } }),
   getPotentialRisers: (force = false) => api.get('/stocks/filtered-predictions', { params: { run_predictions: force, timeout: 60 } }),
   
   // Saatlik Veri ve Model Özellikleri
   getHourlyData: (symbol, days = 45) => api.get(`/stocks/saatlik-data/${symbol}`, { params: { days } }),
   getModelFeatures: (symbol, days = 45) => api.get(`/stocks/model-features/${symbol}`, { params: { days } }),
+  
+  // Teknik Göstergeler
+  getTechnicalIndicators: (symbol) => api.get(`/dashboard/technical-indicators/${symbol}`),
 };
 
 export default apiService; 

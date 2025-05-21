@@ -43,7 +43,8 @@ import {
   Favorite as FavoriteIcon,
   ExitToApp as ExitToAppIcon,
   KeyboardArrowDown as KeyboardArrowDownIcon,
-  Login as LoginIcon
+  Login as LoginIcon,
+  History as HistoryIcon
 } from '@mui/icons-material';
 
 const Header = ({ isLoggedIn, onLogout, darkMode, toggleDarkMode }) => {
@@ -112,6 +113,7 @@ const Header = ({ isLoggedIn, onLogout, darkMode, toggleDarkMode }) => {
   const menuItems = [
     { text: 'Hisse Tarama', icon: <BarChartIcon />, path: '/all-stocks' },
     { text: 'Potansiyel Yükseliş', icon: <TrendingUpIcon />, path: '/potential-risers' },
+    { text: 'Tahmin Geçmişi', icon: <HistoryIcon />, path: '/prediction-history' },
     { text: 'Analiz', icon: <AssessmentIcon />, path: '/dashboard' }
   ];
 
